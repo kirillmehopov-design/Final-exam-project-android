@@ -54,7 +54,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '\${widget.product.name}, size $selectedSize added to cart.',
+          '${widget.product.name}, size $selectedSize added to cart.',
         ),
       ),
     );
@@ -155,7 +155,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const SizedBox(width: 14),
             Text(
-              '\$\${widget.product.price.toStringAsFixed(2)}',
+              '\$${widget.product.price.toStringAsFixed(2)}',
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
