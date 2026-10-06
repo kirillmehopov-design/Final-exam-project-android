@@ -2,6 +2,8 @@
 
 SneakerHub is a Flutter sneaker marketplace created as a university Capstone Project.
 
+**Status:** Milestone 1 complete
+
 ## Milestone 1
 
 The goal of Milestone 1 is to build an MVP interface using the Flutter concepts studied in Weeks 1-5.
