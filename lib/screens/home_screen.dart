@@ -258,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        '\${visibleProducts.length} items',
+                        '${visibleProducts.length} items',
                         style: const TextStyle(
                           color: Colors.black54,
                           fontWeight: FontWeight.w600,
