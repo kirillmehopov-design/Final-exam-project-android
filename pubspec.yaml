@@ -1,15 +1,17 @@
 name: sneakerhub
-description: Sneaker marketplace Flutter capstone project - Milestone 1.
-publish_to: "none"
-version: 1.0.0+1
+description: SneakerHub Flutter + REST + SQLite + BLoC capstone prototype.
+publish_to: none
+version: 2.0.0+2
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  http: ^1.6.0
+  flutter_bloc: ^9.1.1
 
 dev_dependencies:
   flutter_test:
