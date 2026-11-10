@@ -1,131 +1,98 @@
-# SneakerHub
+# SneakerHub Full-Stack Capstone — Milestone 2 Prototype
 
-SneakerHub is a Flutter sneaker marketplace created as a university Capstone Project.
+This branch builds on the Flutter Milestone 1 project without deleting the old `lib/screens`, `lib/models`, `lib/widgets` and `lib/data` files. New entry point: `lib/main.dart`, new UI: `lib/fullstack/`, new REST backend: `backend/`.
 
-**Status:** Milestone 1 complete
+## Implemented in the demo
 
-## Milestone 1
+- Flutter store: search, brand filtering, sneakers, sizes, favorites and cart
+- Three real sign-in roles: customer, admin and courier
+- SQLite inventory per sneaker / shoe size, receiving stock, automatic reservations at checkout
+- Orders and delivery lifecycle: placed → preparing → out_for_delivery → arrived → delivered
+- 6-digit delivery code visible **only** to the owning customer, after courier marks arrival; expires in 20 minutes; limited attempts
+- Promo code `WELCOME10`, discount management, notifications for favorites on price drops
+- Verified-purchase product reviews, loyalty points awarded after delivery
+- Admin dashboard with orders, delivered revenue and low-stock count
+- REST client (`http`) + Cubit state management (`flutter_bloc`, a BLoC-family API)
+- API `/docs` interactive Swagger documentation
+- Python endpoint tests for user permissions, buying, discount, stock and delivery
 
-The goal of Milestone 1 is to build an MVP interface using the Flutter concepts studied in Weeks 1-5.
+## Run the server (Terminal 1)
 
-## Problem
-
-Users often need to browse different stores to discover sneakers, compare models, and save the pairs they like.
-
-## Solution
-
-SneakerHub provides a simple mobile interface where users can:
-
-- Browse sneaker products
-- Search by sneaker or brand name
-- Filter by brand/category
-- Open a detailed product page
-- Add or remove products from favorites
-- Select a shoe size
-- Add products to a working cart with selected size
-- Change quantity, remove items, and see the total price
-
-## Target Audience
-
-Young users interested in sneakers, fashion, and streetwear.
-
-## Screens
-
-1. Home / Discovery
-2. Product Details
-3. Favorites
-4. Cart
-
-## Flutter Concepts Used
-
-- StatefulWidget
-- setState()
-- Stack
-- Row
-- Column
-- Expanded
-- Wrap
-- Card
-- GridView
-- LayoutBuilder
-- Navigator
-- Responsive UI
-
-## Folder Structure
-
-```text
-lib/
-├── main.dart
-├── data/
-│   └── products.dart
-├── models/
-│   ├── product.dart
-│   └── cart_item.dart
-├── screens/
-│   ├── home_screen.dart
-│   ├── product_detail_screen.dart
-│   ├── favorites_screen.dart
-│   └── cart_screen.dart
-└── widgets/
-    ├── category_chip.dart
-    ├── product_card.dart
-    └── size_selector.dart
+```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## How to Run
+Use `http://127.0.0.1:8000/docs` for Swagger UI and `http://127.0.0.1:8000/health` to test connectivity. A local `backend/sneakerhub.sqlite3` database is created automatically and excluded from Git.
+
+## Run Flutter (Terminal 2)
+
+Requires Flutter with Dart >= 3.4.0. If the project does not yet include generated native/web scaffolding, run `flutter create .` once from the repository root.
 
 ```bash
 flutter pub get
-flutter run
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000
 ```
 
-For Chrome:
+For Android emulator, use `--dart-define=API_BASE_URL=http://10.0.2.2:8000`; on a real phone, use `http://<your-computer-LAN-IP>:8000` and connect both devices to the same network. Allow development HTTP traffic in Android manifest / network-security configuration as needed. Production must use HTTPS.
+
+## Demo accounts
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Customer | `customer@demo.test` | `DemoPass123!` |
+| Admin | `admin@demo.test` | `DemoPass123!` |
+| Courier | `courier@demo.test` | `DemoPass123!` |
+
+These credentials are **for local demonstration only**. Real signup can register a customer, never an admin or courier.
+
+## Demo walk-through
+
+1. Sign in as customer, open a sneaker, select a size, add it to the cart and enter an address. Optionally use `WELCOME10`.
+2. Sign out, log in as admin, open Orders and press **Start preparing**, then **Assign courier & dispatch**.
+3. Sign out, log in as courier, open Deliveries and select **I have arrived (demo)**.
+4. Sign out, return to customer, open Orders, press **Show delivery code** and copy six digits.
+5. Log in as courier again, enter code to finish delivery.
+6. Return as customer to view points, notifications and write a verified-purchase review.
+7. As admin, receive stock or update a discount; customers who favorited the product receive an in-app price-drop notification when they refresh.
+
+## Tests
+
+From the project root:
 
 ```bash
-flutter run -d chrome
+pip install -r backend/requirements.txt
+python -m pytest backend/tests -q
 ```
 
-## Milestone 1 Requirements Covered
+Backend tests have been executed locally (3 passed). Flutter has **not** been compiled or run in the preparation environment; run `flutter analyze`, `flutter test` and a device demo yourself before presenting.
 
-### UI/UX Design & Layout
+## Technical notes and limitations
 
-- Stack overlay on product image
-- Row and Column layouts
-- Expanded widgets
-- Responsive GridView
-- Wrap for tags and sizes
+- This is an **educational prototype**, not a production commerce service. Checkout records an order but takes **no payment**.
+- Courier arrival is a simulated manual event. GPS proximity, live tracking/maps, background push (FCM/APNs), email/SMS delivery and address verification are **not integrated**.
+- Notifications are stored in SQLite and shown **inside the app** when refreshed; they do not appear as OS push alerts.
+- The delivery code is derived with server-side HMAC and the courier cannot request it. Configure `SNEAKERHUB_OTP_SECRET` securely on the server; rotate/reissue codes during production migrations.
+- Demo sessions are in-memory on the Flutter client and hashed in SQLite on the server. App restart requires login. For production add persistent secure-token storage, session expiry, API rate limiting, email verification, audit trails, HTTPS and strict CORS rules.
+- Product photos come from third-party public image URLs, and may not load without an internet connection. Replace them with licensed assets for distribution.
+- Customer points and demo coupon are simplified; full order cancellations, refunds, payment webhooks, background jobs and supply supplier accounting are beyond this prototype.
 
-### Working Interactivity
+## Source tree
 
-- Favorite button
-- Search
-- Category filter
-- Size selector
-- Add to cart
-- Cart quantity + / -
-- Remove from cart
-- Total price
-
-### Code Cleanliness
-
-- Separate models, data, screens, and widgets
-- Reusable product card and size selector
-- Clean navigation
-
-### Responsive Layout
-
-- LayoutBuilder changes product grid columns based on width
-- Product Detail screen changes from Column to Row on wide screens
-- Scrollable content prevents RenderFlex overflow
-
-## Future Development
-
-Later milestones can add:
-
-- REST API
-- Authentication
-- Database
-- Real backend shopping cart
-- User profile
-- Product reviews
-- BLoC architecture
+```text
+backend/
+  app.py                  SQLite persistence + REST endpoints
+  requirements.txt
+  tests/test_app.py       Core integration tests
+lib/
+  main.dart               New BLoC app entry point
+  fullstack/
+    api_client.dart       Typed HTTP wrapper
+    shop_cubit.dart       Cubit state and backend interaction
+    shop_ui.dart          Responsive customer/admin/courier screens
+  screens/, models/, ...  Legacy Milestone 1 files, preserved
+```
