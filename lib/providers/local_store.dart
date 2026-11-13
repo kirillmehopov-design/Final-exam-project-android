@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../fullstack/shop_cubit.dart';
+import '../models/cart_line.dart';
 
 class LocalStore {
   static const _themeKey = 'sneakerhub.theme.dark';
