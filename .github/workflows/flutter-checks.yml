@@ -1,0 +1,25 @@
+name: Flutter final rubric checks
+
+on:
+  push:
+    branches:
+      - feature/final-rubric-100
+  pull_request:
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Flutter project scaffolding
+        run: flutter create --project-name sneakerhub .
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze capstone code
+        run: flutter analyze lib/main.dart lib/fullstack lib/providers lib/models/api_product.dart lib/models/cart_line.dart test
+      - name: Run Flutter unit tests
+        run: flutter test
