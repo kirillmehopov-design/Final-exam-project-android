@@ -1,21 +1,18 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'api_client.dart';
+import '../models/api_product.dart';
+import '../models/cart_line.dart';
+import '../providers/local_store.dart';
 
 typedef Json = Map<String, dynamic>;
 
 List<Json> asJsonList(dynamic value) =>
     (value as List<dynamic>).map((v) => Map<String, dynamic>.from(v as Map)).toList();
 
-class CartLine {
-  final int productId;
-  final int size;
-  final int quantity;
-  const CartLine(this.productId, this.size, this.quantity);
-  CartLine withQuantity(int q) => CartLine(productId, size, q);
-}
-
 class ShopState {
   final bool busy;
+  final bool catalogLoading;
+  final String? catalogError;
   final Json? user;
   final List<Json> products;
   final List<Json> orders;
@@ -30,6 +27,8 @@ class ShopState {
 
   const ShopState({
     this.busy = false,
+    this.catalogLoading = false,
+    this.catalogError,
     this.user,
     this.products = const [],
     this.orders = const [],
@@ -45,6 +44,9 @@ class ShopState {
 
   ShopState copyWith({
     bool? busy,
+    bool? catalogLoading,
+    String? catalogError,
+    bool clearCatalogError = false,
     Json? user,
     bool clearUser = false,
     List<Json>? products,
@@ -61,6 +63,8 @@ class ShopState {
   }) {
     return ShopState(
       busy: busy ?? this.busy,
+      catalogLoading: catalogLoading ?? this.catalogLoading,
+      catalogError: clearCatalogError ? null : (catalogError ?? this.catalogError),
       user: clearUser ? null : (user ?? this.user),
       products: products ?? this.products,
       orders: orders ?? this.orders,
@@ -78,12 +82,42 @@ class ShopState {
 
 class ShopCubit extends Cubit<ShopState> {
   final ApiClient api;
-  ShopCubit(this.api) : super(const ShopState());
+  final LocalStore localStore;
 
-  Future<void> initialize() => run(() async {
-        final products = asJsonList(await api.get('/products'));
-        emit(state.copyWith(products: products));
-      }, success: null);
+  ShopCubit(this.api, this.localStore)
+      : super(ShopState(
+          cart: localStore.cart,
+          favorites: localStore.favorites,
+        ));
+
+  List<Json> _parseProducts(dynamic data) {
+    final maps = asJsonList(data);
+    return maps.map((json) {
+      final normalized = ApiProduct.normalize(json);
+      ApiProduct.fromJson(normalized);
+      return normalized;
+    }).toList();
+  }
+
+  Future<void> initialize() async {
+    emit(state.copyWith(catalogLoading: true, clearCatalogError: true));
+    try {
+      final products = _parseProducts(await api.get('/products'));
+      emit(state.copyWith(
+        products: products,
+        catalogLoading: false,
+        clearCatalogError: true,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        catalogLoading: false,
+        catalogError: e.toString(),
+        error: true,
+      ));
+    }
+  }
+
+  Future<void> retryCatalog() => initialize();
 
   Future<void> run(Future<void> Function() action, {String? success}) async {
     emit(state.copyWith(busy: true, clearNotice: true));
@@ -113,12 +147,13 @@ class ShopCubit extends Cubit<ShopState> {
           await api.post('/auth/logout');
         } finally {
           api.token = null;
+          await localStore.clearShoppingData();
           emit(ShopState(products: state.products));
         }
       }, success: null);
 
   Future<void> _refreshAll() async {
-    final products = asJsonList(await api.get('/products'));
+    final products = _parseProducts(await api.get('/products'));
     if (api.token == null) {
       emit(state.copyWith(products: products));
       return;
@@ -136,8 +171,12 @@ class ShopCubit extends Cubit<ShopState> {
       couriers = asJsonList(await api.get('/admin/couriers'));
       stats = Map<String, dynamic>.from(await api.get('/admin/stats'));
     }
+    if (role == 'customer') {
+      await localStore.saveFavorites(favorites);
+    }
     emit(state.copyWith(user: user, products: products, orders: orders,
-        notifications: notifications, favorites: favorites, couriers: couriers, stats: stats));
+        notifications: notifications, favorites: favorites, couriers: couriers, stats: stats,
+        clearCatalogError: true));
   }
 
   Future<void> refresh() => run(_refreshAll, success: 'Updated');
@@ -158,6 +197,7 @@ class ShopCubit extends Cubit<ShopState> {
       list[index] = list[index].withQuantity(list[index].quantity + 1);
     }
     emit(state.copyWith(cart: list, notice: 'Added to cart', error: false));
+    localStore.saveCart(list);
   }
 
   void changeQuantity(CartLine line, int quantity) {
@@ -170,12 +210,14 @@ class ShopCubit extends Cubit<ShopState> {
       list[index] = list[index].withQuantity(quantity);
     }
     emit(state.copyWith(cart: list));
+    localStore.saveCart(list);
   }
 
   Future<void> toggleFavorite(int productId) => run(() async {
         await api.post('/favorites/$productId');
         final favorites = (await api.get('/favorites') as List<dynamic>).map((e) => e as int).toSet();
         emit(state.copyWith(favorites: favorites));
+        await localStore.saveFavorites(favorites);
       }, success: 'Favorites updated');
 
   Future<void> checkout(String address, String promo, bool usePoints) => run(() async {
@@ -190,6 +232,7 @@ class ShopCubit extends Cubit<ShopState> {
           }).toList(),
         });
         emit(state.copyWith(cart: [], tab: 3));
+        await localStore.saveCart([]);
         await _refreshAll();
       }, success: 'Order placed!');
 
