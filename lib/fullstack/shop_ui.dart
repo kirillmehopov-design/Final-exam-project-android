@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'shop_cubit.dart';
+import '../providers/theme_cubit.dart';
 
 String money(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
 int amount(Json p) => p['sale_price_cents'] as int;
@@ -10,14 +12,24 @@ class SneakerHubFullstackApp extends StatelessWidget {
   const SneakerHubFullstackApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeCubit>().state;
+    return MaterialApp(
         debugShowCheckedModeBanner: false,
+        themeMode: themeMode,
         title: 'SneakerHub',
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF17213B)),
           scaffoldBackgroundColor: const Color(0xFFF7F8FB),
           cardTheme: const CardThemeData(color: Colors.white, elevation: 0),
+        ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF7289FA),
+            brightness: Brightness.dark,
+          ),
         ),
         home: BlocConsumer<ShopCubit, ShopState>(
           listenWhen: (previous, current) => previous.notice != current.notice && current.notice != null,
@@ -31,6 +43,7 @@ class SneakerHubFullstackApp extends StatelessWidget {
               state.user == null ? const LoginPage() : const Dashboard(),
         ),
       );
+  }
 }
 
 class LoginPage extends StatefulWidget {
@@ -134,12 +147,18 @@ class Dashboard extends StatelessWidget {
                 BottomNavigationBarItem(icon: Icon(Icons.local_shipping_outlined), label: 'Deliveries'),
                 BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
               ]
-            : const [
-                BottomNavigationBarItem(icon: Icon(Icons.storefront), label: 'Shop'),
-                BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: 'Saved'),
-                BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: 'Cart'),
-                BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            : [
+                const BottomNavigationBarItem(icon: Icon(Icons.storefront), label: 'Shop'),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.favorite_border),
+                  label: 'Saved (${state.favorites.length})',
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  label: 'Cart (${state.cart.fold<int>(0, (total, item) => total + item.quantity)})',
+                ),
+                const BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
+                const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
               ];
     final selected = state.tab.clamp(0, screens.length - 1);
     return Scaffold(
@@ -185,23 +204,60 @@ class CatalogPage extends StatefulWidget {
 class _CatalogPageState extends State<CatalogPage> {
   String query = '';
   String brand = 'All';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ShopCubit>().state;
+    if (state.catalogLoading && state.products.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.catalogError != null && state.products.isEmpty) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.wifi_off_outlined, size: 48),
+          const SizedBox(height: 12),
+          const Text('Unable to load products'),
+          const SizedBox(height: 8),
+          Text(state.catalogError!, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: () => context.read<ShopCubit>().retryCatalog(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ]),
+      ));
+    }
     final brands = ['All', ...state.products.map((p) => p['brand'] as String).toSet()];
     final filtered = state.products.where((p) =>
         ('$query'.isEmpty || (p['name'] as String).toLowerCase().contains(query.toLowerCase())) &&
         (brand == 'All' || p['brand'] == brand)).toList();
     return LayoutBuilder(builder: (context, constraints) {
       final cols = constraints.maxWidth > 950 ? 4 : constraints.maxWidth > 580 ? 3 : 2;
-      return CustomScrollView(slivers: [
+      return RefreshIndicator(
+        onRefresh: () => context.read<ShopCubit>().refresh(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Discover sneakers', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            TextField(onChanged: (v) => setState(() => query = v),
+            TextField(onChanged: (value) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+                if (mounted) setState(() => query = value);
+              });
+            },
               decoration: const InputDecoration(prefixIcon: Icon(Icons.search),
                 hintText: 'Search by model...', filled: true, border: OutlineInputBorder())),
             const SizedBox(height: 10),
@@ -229,7 +285,8 @@ class _CatalogPageState extends State<CatalogPage> {
             }, childCount: filtered.length),
           ),
         ),
-      ]);
+          ]),
+      );
     });
   }
 }
@@ -250,7 +307,10 @@ class ProductTile extends StatelessWidget {
             child: ProductPage(productId: product['id'] as int)))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: Stack(fit: StackFit.expand, children: [
-            photo(product['image_url'] as String, height: 220),
+            Hero(
+              tag: 'product-${product['id']}',
+              child: photo(product['image_url'] as String, height: 220),
+            ),
             if ((product['discount'] as int) > 0)
               Positioned(top: 8, left: 8, child: Chip(label: Text('-${product['discount']}%'))),
             Positioned(top: 3, right: 3, child: CircleAvatar(
@@ -310,7 +370,10 @@ class _ProductPageState extends State<ProductPage> {
         Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 700),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ClipRRect(borderRadius: BorderRadius.circular(22),
-              child: photo(product['image_url'] as String, height: 290)),
+              child: Hero(
+                tag: 'product-${product['id']}',
+                child: photo(product['image_url'] as String, height: 290),
+              )),
             const SizedBox(height: 18),
             Text(product['name'] as String, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
@@ -653,6 +716,12 @@ class ProfilePage extends StatelessWidget {
       Center(child: Text('${user['email']}', style: const TextStyle(fontWeight: FontWeight.bold))),
       Center(child: Text('Role: ${user['role']}')),
       const SizedBox(height: 12),
+      SwitchListTile(
+        secondary: const Icon(Icons.dark_mode_outlined),
+        title: const Text('Dark theme'),
+        value: context.watch<ThemeCubit>().state == ThemeMode.dark,
+        onChanged: (enabled) => context.read<ThemeCubit>().setDarkMode(enabled),
+      ),
       Card(child: ListTile(leading: const Icon(Icons.workspace_premium_outlined),
         title: const Text('Loyalty points'), trailing: Text('${user['points'] ?? 0}'))),
       const SizedBox(height: 20),
