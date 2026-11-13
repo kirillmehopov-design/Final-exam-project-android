@@ -1,6 +1,6 @@
 # Cloud API deployment required for FINAL.docx
 
-The existing FastAPI + SQLite service has a working local REST API, but a localhost URL is NOT a real deployed cloud REST API. This setup is a deployment guide, not proof of deployment.
+The existing FastAPI + SQLite service has a working local REST API, but a localhost URL is NOT a real deployed cloud REST API. This setup is a deployment guide, not proof of deployment. See the official [Render Blueprint specification](https://render.com/docs/blueprint-spec).
 
 ## Suggested demo-only deployment
 
