@@ -123,9 +123,20 @@ class ShopCubit extends Cubit<ShopState> {
     emit(state.copyWith(busy: true, clearNotice: true));
     try {
       await action();
-      emit(state.copyWith(busy: false, notice: success, clearNotice: success == null, error: false));
+      emit(state.copyWith(
+        busy: false,
+        notice: success,
+        clearNotice: success == null,
+        error: false,
+        clearCatalogError: true,
+      ));
     } catch (e) {
-      emit(state.copyWith(busy: false, notice: e.toString(), error: true));
+      emit(state.copyWith(
+        busy: false,
+        notice: e.toString(),
+        error: true,
+        catalogError: state.user == null ? null : e.toString(),
+      ));
     }
   }
 
