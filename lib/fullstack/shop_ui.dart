@@ -150,12 +150,20 @@ class Dashboard extends StatelessWidget {
             : [
                 const BottomNavigationBarItem(icon: Icon(Icons.storefront), label: 'Shop'),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.favorite_border),
-                  label: 'Saved (${state.favorites.length})',
+                  icon: Badge(
+                    isLabelVisible: state.favorites.isNotEmpty,
+                    label: Text('${state.favorites.length}'),
+                    child: const Icon(Icons.favorite_border),
+                  ),
+                  label: 'Saved',
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.shopping_cart_outlined),
-                  label: 'Cart (${state.cart.fold<int>(0, (total, item) => total + item.quantity)})',
+                  icon: Badge(
+                    isLabelVisible: state.cart.isNotEmpty,
+                    label: Text('${state.cart.fold<int>(0, (total, item) => total + item.quantity)}'),
+                    child: const Icon(Icons.shopping_cart_outlined),
+                  ),
+                  label: 'Cart',
                 ),
                 const BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
                 const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
@@ -307,10 +315,7 @@ class ProductTile extends StatelessWidget {
             child: ProductPage(productId: product['id'] as int)))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: Stack(fit: StackFit.expand, children: [
-            Hero(
-              tag: 'product-${product['id']}',
-              child: photo(product['image_url'] as String, height: 220),
-            ),
+            photo(product['image_url'] as String, height: 220),
             if ((product['discount'] as int) > 0)
               Positioned(top: 8, left: 8, child: Chip(label: Text('-${product['discount']}%'))),
             Positioned(top: 3, right: 3, child: CircleAvatar(
@@ -370,10 +375,7 @@ class _ProductPageState extends State<ProductPage> {
         Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 700),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ClipRRect(borderRadius: BorderRadius.circular(22),
-              child: Hero(
-                tag: 'product-${product['id']}',
-                child: photo(product['image_url'] as String, height: 290),
-              )),
+              child: photo(product['image_url'] as String, height: 290)),
             const SizedBox(height: 18),
             Text(product['name'] as String, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
