@@ -16,6 +16,35 @@ This branch builds on the Flutter Milestone 1 project without deleting the old `
 - API `/docs` interactive Swagger documentation
 - Python endpoint tests for user permissions, buying, discount, stock and delivery
 
+
+## FINAL.docx rubric updates (feature/final-rubric-100)
+
+This branch addresses the instructor's FINAL assessment without modifying the original Milestone 1 on `main`.
+
+- Persistent dark/light theme initialized from `shared_preferences` before `runApp`
+- Cached cart lines and favorite IDs in JSON on disk; restored on app startup
+- BLoC/Cubit remains the single source of UI state; live cart/favorites badges
+- Typed `ApiProduct.fromJson` includes safe `(json['price'] as num).toDouble()`
+- Async REST catalog loading, network errors with Retry, and pull-to-refresh
+- Debounced search (350 ms), a potential rubric bonus
+- New Flutter tests for type-safe parsing and cached state restoration
+- GitHub Actions checks Flutter analysis and Flutter tests
+
+Refer to [FINAL checklist](docs/FINAL_CHECKLIST.md) and [cloud API instructions](docs/CLOUD_API_SETUP.md).
+
+**Important:** The FastAPI server is local by default. A deployed public HTTPS URL is required for the cloud REST criterion; this repository does not deploy that service automatically. Native Android/iOS testing and the 3-minute defense remain your responsibility.
+
+### Quick verification
+
+```bash
+flutter create --project-name sneakerhub .
+flutter pub get
+flutter analyze --no-fatal-infos lib/main.dart lib/fullstack lib/providers lib/models/api_product.dart lib/models/cart_line.dart test
+flutter test test/api_product_test.dart test/local_store_test.dart
+```
+
+After adding items to the cart and switching to dark theme, fully stop the application and restart it. Theme and cached cart should be restored. Sign in to access the backend data again.
+
 ## Run the server (Terminal 1)
 
 ```bash
