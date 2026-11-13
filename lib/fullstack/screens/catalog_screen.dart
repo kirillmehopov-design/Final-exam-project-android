@@ -52,6 +52,39 @@ class _CatalogPageState extends State<CatalogPage> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+        if (state.catalogLoading)
+          const SliverToBoxAdapter(
+            child: LinearProgressIndicator(),
+          ),
+        if (state.catalogError != null)
+          SliverToBoxAdapter(
+            child: Card(
+              margin: const EdgeInsets.all(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Network request failed. Showing cached results if available.'),
+                    const SizedBox(height: 6),
+                    Text(
+                      state.catalogError!,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => context.read<ShopCubit>().retryCatalog(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
