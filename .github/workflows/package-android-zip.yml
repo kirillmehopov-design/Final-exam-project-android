@@ -1,0 +1,52 @@
+name: Build downloadable SneakerHub project ZIP
+
+on:
+  push:
+    branches:
+      - feature/final-rubric-100
+    paths:
+      - 'lib/**'
+      - 'backend/**'
+      - 'test/**'
+      - 'docs/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'README.md'
+      - '.github/workflows/package-android-zip.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android and Web project files
+        run: flutter create --platforms=android,web --project-name sneakerhub .
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+      - name: Run Flutter tests
+        run: flutter test
+      - name: Create project ZIP
+        run: |
+          mkdir -p dist
+          zip -r dist/SneakerHub_FINAL_rubric_100.zip . \
+            -x './.git/*' \
+               './.dart_tool/*' \
+               './build/*' \
+               './dist/*'
+      - name: Upload downloadable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: SneakerHub_FINAL_rubric_100
+          path: dist/SneakerHub_FINAL_rubric_100.zip
+          if-no-files-found: error
+          retention-days: 14
