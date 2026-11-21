@@ -8,14 +8,18 @@ This is a **demonstration prototype**, not an actual retailer. **All 10 Almaty b
 
 | Feature | Implementation |
 |---|---|
-| Sneaker catalog | 12 demo sneaker models with images, sizes, stock, discounts and prices in KZT (₸) |
+| Sneaker catalog | 12 demo sneaker models with images, sizes, **per-branch** stock (including sold-out sizes), discounts and prices in KZT (₸) |
 | Search and discovery | Debounced name/brand search, brand/category filters, in-stock and sale filters, price/discount sorting |
-| Store locator | OpenStreetMap interactive map, 10 demo markers across all 8 Almaty districts, district dropdown, store cards and Google Maps directions link |
+| Store locator | OpenStreetMap interactive map, 10 demo markers across all 8 Almaty districts, district dropdown, unique named boutique profiles, storefront interior image carousel, and Google Maps directions link |
 | User accounts | REST signup/login, customer/admin/courier demo roles |
 | Cart and saved items | Shared `ShopCubit` state; quantities and cart persisted in `SharedPreferences`, favorites synced via REST |
-| Orders | Simulated checkout with address and WELCOME10 coupon, admin status/assignment, courier handoff |
-| Delivery code | Six-digit code shown to customer only after courier presses **I have arrived (demo)**; server verifies it and expires after 20 minutes |
+| Orders | Simulated checkout, home delivery or branch pickup, WELCOME10 coupon, admin status/assignment, courier handoff |
+| Delivery code | Six-digit code shown after courier arrival (20 minutes) or pickup readiness (3 days); courier or admin verifies it |
 | Discount notifications | Stored in SQLite; in-app alerts for favorited products on price reductions, refreshed while the app is open |
+| Back-in-stock alerts | Subscriber chooses a **sold-out size at a specific branch**; the database remembers the subscription and creates an in-app notification after that branch is restocked |
+| Compare branches | On the sneaker detail page, select an EU size then tap **Check this size at other stores** to see which branches have it |
+| Store profiles | Named boutique, fictional description/hours, photo carousel, model list and per-size quantity |
+| Branch supplies | Admin picks product + branch + EU size + quantity; stock is changed only for that branch |
 | Inventory | Admin size-level stock/supply changes, low-stock statistics, discounts |
 | Persistence | Persistent theme, cart, favorites, and the original Lab 11 offline notes / username |
 | Architecture | Flutter BLoC/Cubit + REST API + SQLite, with separated folders and role-based UI |
@@ -39,7 +43,7 @@ uvicorn app:app --reload --host 127.0.0.1 --port 8000
 
 If script execution is blocked by PowerShell, skip activation and invoke `.venv\Scripts\python.exe -m pip install -r requirements.txt` followed by `.venv\Scripts\python.exe -m uvicorn app:app --reload --host 127.0.0.1 --port 8000`.
 
-After starting, check http://127.0.0.1:8000/health and browse the API at http://127.0.0.1:8000/docs. The backend creates `backend/sneakerhub.sqlite3` automatically. This data file remains on your computer and is excluded from Git.
+After starting, check http://127.0.0.1:8000/health and browse the API at http://127.0.0.1:8000/docs. The backend creates `backend/sneakerhub.sqlite3` automatically. Existing local databases are migrated with per-branch stock tables and extra fulfillment fields. Branch coordinates, store descriptions, model stock and photos are fictional demo data. This data file remains on your computer and is excluded from Git.
 
 **Terminal 2 — launch Flutter Web:**
 
@@ -67,10 +71,10 @@ You can also register a new customer account.
 
 1. Sign in as **customer**. Search for shoes, filter models by brand, price, category, discount and size availability.
 2. Open **Stores**, filter by district, tap any of the 10 fictional Almaty markers and open directions.
-3. Save a sneaker, choose EU size, add to cart and submit a **demo** order using a sample Almaty delivery address.
-4. Sign in as **admin** and move the order to `preparing`, assign the demo courier, dispatch, restock sizes or set a discount.
+3. Open one location's profile, swipe through photos, explore its catalogue. Choose a product and size. If it is sold out, subscribe for restock and use **Check this size at other stores**. Add an available pair from a specific branch to the cart, then choose **home delivery** or **pickup from this branch** at checkout.
+4. Sign in as **admin** and move a delivery order to `preparing`, assign the demo courier and dispatch, OR mark a pickup order `ready_for_pickup`. Restock a specific store's sold-out size to trigger subscribed alerts; manage discounts.
 5. Sign in as **courier** and use **I have arrived (demo)**.
-6. Sign in as the original **customer** to see the delivery code in Orders; sign in as **courier** to enter the code and finish delivery.
+6. Sign in as the original **customer** to see the delivery/pickup code in Orders. For home delivery, the **courier** enters the code; for collection, the **admin** enters the pickup code.
 7. Check **Profile** for in-app notifications and **Offline notes and settings (Lab 11)** for username, local notes and dark theme.
 
 On-screen alerts update by polling while the user is signed in (roughly every 25 seconds); they are **not** actual push messages delivered while the app is closed.
@@ -108,3 +112,16 @@ backend/tests/test_app.py             API flow/permissions/store tests
 ## Deployment notes
 
 Do not expose demo passwords publicly on a live deployment. Use a hosted database, backups, HTTPS, secrets management, properly scoped CORS, rate-limiting, persistent secure sessions and real push/GPS services before production. Hosting the API is a separate setup step and is not claimed completed.
+
+
+## Store API endpoints
+
+- `GET /stores`, `GET /stores/{id}` (profiles + 3 illustration photos)
+- `GET /stores/{id}/products`, `GET /stores/{id}/products/{product_id}` (size quantities per branch)
+- `GET /products/{id}/availability?size=42` (compare other branches)
+- `POST /stores/{id}/restock-alerts` (customer subscription for a sold-out size)
+- `GET /restock-alerts`, `DELETE /restock-alerts/{store_id}/{product_id}/{size}`
+- `POST /admin/store-supplies` (restock a branch; alert waiting customers)
+- `POST /orders` accepts optional `store_id` and `fulfillment: delivery|pickup`
+- `PATCH /admin/orders/{id}` accepts `ready_for_pickup` for a prepared pickup order
+- `POST /admin/orders/{id}/pickup` verifies the one-time customer code
