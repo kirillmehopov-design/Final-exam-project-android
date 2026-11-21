@@ -319,6 +319,11 @@ class ShopCubit extends Cubit<ShopState> {
         await _refreshAll();
       }, success: 'Order updated');
 
+  Future<void> confirmPickup(int orderId, String code) => run(() async {
+        await api.post('/admin/orders/$orderId/pickup', {'code': code});
+        await _refreshAll();
+      }, success: 'Pickup confirmed!');
+
   Future<void> courierArrive(int orderId) => run(() async {
         await api.post('/courier/orders/$orderId/arrive');
         await _refreshAll();

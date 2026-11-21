@@ -21,6 +21,9 @@ class OrdersPage extends StatelessWidget {
               Expanded(child: Text('Order #$id', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
               Chip(label: Text(status.replaceAll('_', ' '))),
             ]),
+            if (order['store_name'] != null)
+              Text('${order['store_name']} • ${order['fulfillment'] == 'pickup' ? 'Collect from store' : 'Home delivery'}',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             Text('${order['address']}'),
             const SizedBox(height: 6),
             for (final item in items) Text('${item['name']} • EU ${item['size']} × ${item['quantity']}'),
@@ -28,13 +31,21 @@ class OrdersPage extends StatelessWidget {
             Text(money(order['total_cents'] as int),
               style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            if (role == 'customer' && status == 'arrived')
+            if (role == 'customer' && (status == 'arrived' || status == 'ready_for_pickup'))
               FilledButton.icon(icon: const Icon(Icons.pin), label: const Text('Show delivery code'),
                 onPressed: () => _showCode(context, id)),
             if (role == 'admin' && status == 'placed')
               FilledButton(onPressed: () => cubit.adminStatus(id, 'preparing'),
                 child: const Text('Start preparing')),
-            if (role == 'admin' && status == 'preparing')
+            if (role == 'admin' && status == 'preparing' &&
+                order['fulfillment'] == 'pickup')
+              FilledButton(onPressed: () => cubit.adminStatus(id, 'ready_for_pickup'),
+                child: const Text('Mark ready for collection')),
+            if (role == 'admin' && status == 'ready_for_pickup')
+              FilledButton(onPressed: () => _verifyPickup(context, id),
+                child: const Text('Verify customer pickup code')),
+            if (role == 'admin' && status == 'preparing' &&
+                order['fulfillment'] != 'pickup')
               FilledButton(onPressed: cubit.state.couriers.isEmpty ? null : () =>
                 cubit.adminStatus(id, 'out_for_delivery',
                   courierId: cubit.state.couriers.first['id'] as int),
@@ -55,13 +66,35 @@ class OrdersPage extends StatelessWidget {
       final code = await context.read<ShopCubit>().customerCode(id);
       if (!context.mounted) return;
       await showDialog<void>(context: context, builder: (dialog) => AlertDialog(
-        title: const Text('Delivery code (20 minutes)'),
+        title: const Text('Handoff code (pickup: 3 days, delivery: 20 min)'),
         content: SelectableText(code, textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 30, letterSpacing: 6, fontWeight: FontWeight.bold)),
         actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Close'))],
       ));
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _verifyPickup(BuildContext context, int id) async {
+    final field = TextEditingController();
+    final code = await showDialog<String>(
+      context: context, builder: (dialog) => AlertDialog(
+        title: const Text('Pickup code'),
+        content: TextField(controller: field,
+          keyboardType: TextInputType.number, maxLength: 6,
+          decoration: const InputDecoration(labelText: '6-digit customer code')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, field.text),
+            child: const Text('Confirm pickup')),
+        ],
+      ),
+    );
+    field.dispose();
+    if (code != null && context.mounted) {
+      await context.read<ShopCubit>().confirmPickup(id, code);
     }
   }
 
