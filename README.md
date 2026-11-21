@@ -114,6 +114,45 @@ backend/tests/test_app.py             API flow/permissions/store tests
 Do not expose demo passwords publicly on a live deployment. Use a hosted database, backups, HTTPS, secrets management, properly scoped CORS, rate-limiting, persistent secure sessions and real push/GPS services before production. Hosting the API is a separate setup step and is not claimed completed.
 
 
+## New features: shop-to-shop transfers, delivery quotes, low stock
+
+**Inter-store transfer (demo):** Select an unavailable EU size on a branch's
+product page and choose **Request from another SneakerHub store**. Pick a source
+branch with available stock. Customer sees the request in **Profile > My sneaker
+transfers**. Admin sees it in **Stock > Store transfer requests** and can
+approve/reserve one pair, mark it as arrived at the destination, reject the
+request, or cancel an approved request to return stock to the source. Source
+stock is decremented only when an admin approves; destination stock increases
+only when an admin confirms arrival. All transitions are transactional and
+stored in SQLite. Customer receives in-app notifications, not real-time courier
+tracking or a confirmed shipping promise.
+
+**Estimated delivery for Almaty:** In **Cart > Checkout**, choose **Home
+delivery** and one of the eight Almaty districts. The app requests the
+preliminary fee and 1–3 day estimate from `GET /delivery/estimate`. Same-
+district orders get a 400 KZT discount from the illustrative district tariff.
+The server independently calculates the delivery fee again and adds it to the
+order total. **Pickup** has no shipping fee. Check **Orders** for the fee, ETA
+and final total. These rates/dates are fabricated educational examples, not
+live courier prices or promised delivery timeframes.
+
+**Low-stock warnings:** In a store's catalogue, EU sizes with one or two
+pairs left show a highlighted warning. Product details also display exactly
+how many units of the selected size remain in that branch. They update from
+per-branch stock stored by the API; do not interpret them as live physical
+inventory at any real retailer.
+
+**New endpoints:**
+- `GET /delivery/estimate?district=Almaly&store_id=1`
+- `POST /transfers` (customer, source/destination/product/EU size)
+- `GET /transfers` (customer's own or admin's full list)
+- `PATCH /admin/transfers/{id}` (approved/completed/rejected/cancelled)
+- `POST /orders` with `delivery_district` for home delivery (server recalculates fee)
+
+To demonstrate, use the same three built-in customer/admin/courier accounts.
+The transfers are an administrative **simulation**, not actual physical goods
+transported between shops.
+
 ## Store API endpoints
 
 - `GET /stores`, `GET /stores/{id}` (profiles + 3 illustration photos)
