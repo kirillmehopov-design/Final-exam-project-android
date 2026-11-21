@@ -49,43 +49,146 @@ class CartPage extends StatelessWidget {
   }
 
   Future<void> _checkout(BuildContext context) async {
-    final address = TextEditingController(text: '123 Demo Street, Almaty');
+    final cubit = context.read<ShopCubit>();
+    final address = TextEditingController(text: 'Almaty, apartment / street');
     final promo = TextEditingController();
     var usePoints = false;
     var fulfillment = 'delivery';
-    final order = await showDialog<(String, String, bool, String)>(context: context,
-      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Confirm demo order'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('No real payment will be collected.'),
-          if (context.read<ShopCubit>().state.storeId != null) ...[
-            RadioListTile<String>(
-              title: const Text('Home delivery'),
-              value: 'delivery', groupValue: fulfillment,
-              onChanged: (v) => setDialogState(() => fulfillment = v ?? 'delivery')),
-            RadioListTile<String>(
-              title: const Text('Pick up from branch'),
-              value: 'pickup', groupValue: fulfillment,
-              onChanged: (v) => setDialogState(() => fulfillment = v ?? 'pickup')),
+    var district = 'Almaly';
+    Future<Json>? quote;
+    Future<Json> fetchQuote() => cubit.api.get(
+      '/delivery/estimate?district=$district'
+      '${cubit.state.storeId == null ? '' : '&store_id=${cubit.state.storeId}'}',
+    ).then((value) => Map<String, dynamic>.from(value as Map));
+    quote = fetchQuote();
+    final order = await showDialog<(String, String, bool, String, String)>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, refresh) => AlertDialog(
+          title: const Text('Checkout • SneakerHub'),
+          content: SizedBox(
+            width: 470,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Demo checkout • No real payment is collected.'),
+                  const SizedBox(height: 12),
+                  if (cubit.state.storeId != null) ...[
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'delivery',
+                          label: Text('Home delivery'), icon: Icon(Icons.local_shipping_outlined)),
+                        ButtonSegment(value: 'pickup',
+                          label: Text('Pickup'), icon: Icon(Icons.storefront_outlined)),
+                      ],
+                      selected: {fulfillment},
+                      onSelectionChanged: (v) => refresh(() => fulfillment = v.first),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (fulfillment == 'delivery') ...[
+                    DropdownButtonFormField<String>(
+                      initialValue: district,
+                      decoration: const InputDecoration(
+                        labelText: 'Destination district • Almaty',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (final area in const [
+                          'Almaly','Auezov','Bostandyk','Medeu',
+                          'Zhetysu','Turksib','Alatau','Nauryzbay',
+                        ])
+                          DropdownMenuItem(value: area, child: Text(area)),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        refresh(() {
+                          district = value;
+                          quote = fetchQuote();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    FutureBuilder<Json>(
+                      future: quote,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Text('Delivery estimate unavailable: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red));
+                        }
+                        if (!snapshot.hasData) {
+                          return const LinearProgressIndicator();
+                        }
+                        final data = snapshot.data!;
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Estimated delivery: ${money(data['fee_cents'] as int)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text('${data['eta_min_days']}–${data['eta_max_days']} days • illustrative'),
+                                const Text('No actual courier quote or live GPS.',
+                                  style: TextStyle(fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ] else
+                    const Text('Free pickup • Collect from selected demo branch.'),
+                  TextField(
+                    controller: address,
+                    decoration: InputDecoration(
+                      labelText: fulfillment == 'pickup'
+                        ? 'Collection contact or note'
+                        : 'Home address (street, building, apartment)',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(controller: promo, decoration: const InputDecoration(
+                    labelText: 'Promo code (WELCOME10)', border: OutlineInputBorder())),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: usePoints,
+                    title: const Text('Use loyalty points'),
+                    onChanged: (v) => refresh(() => usePoints = v ?? false)),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (address.text.trim().length < 8) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Enter a longer address or contact note')));
+                  return;
+                }
+                Navigator.pop(dialogContext,
+                    (address.text.trim(), promo.text.trim(), usePoints,
+                     fulfillment, district));
+              },
+              child: const Text('Place demo order'),
+            ),
           ],
-          TextField(controller: address,
-            decoration: InputDecoration(
-              labelText: fulfillment == 'delivery' ? 'Delivery address'
-                  : 'Pickup contact / note (demo)',
-            )),
-          TextField(controller: promo, decoration: const InputDecoration(labelText: 'Promo code (WELCOME10)')),
-          CheckboxListTile(value: usePoints, title: const Text('Use loyalty points'),
-            onChanged: (v) => setDialogState(() => usePoints = v ?? false)),
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, (address.text, promo.text, usePoints, fulfillment)),
-            child: const Text('Place order')),
-        ],
-      )));
+        ),
+      ),
+    );
+    address.dispose();
+    promo.dispose();
     if (order != null && context.mounted) {
       await context.read<ShopCubit>().checkout(order.$1, order.$2, order.$3,
-        fulfillment: order.$4);
+        fulfillment: order.$4,
+        deliveryDistrict: order.$4 == 'delivery' ? order.$5 : null);
     }
   }
 }
