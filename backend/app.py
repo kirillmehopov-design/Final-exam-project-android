@@ -199,6 +199,19 @@ def init_db() -> None:
                 CHECK(quantity >= 0),
             PRIMARY KEY(store_id, product_id, size)
         );
+        CREATE TABLE IF NOT EXISTS store_transfers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            source_store_id INTEGER NOT NULL REFERENCES stores(id),
+            destination_store_id INTEGER NOT NULL REFERENCES stores(id),
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            size INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity > 0),
+            status TEXT NOT NULL DEFAULT 'requested',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            CHECK(source_store_id <> destination_store_id)
+        );
         CREATE TABLE IF NOT EXISTS restock_alerts (
             user_id INTEGER NOT NULL REFERENCES users(id),
             store_id INTEGER NOT NULL REFERENCES stores(id),
@@ -362,6 +375,18 @@ class Checkout(BaseModel):
     store_id: int | None = None
     fulfillment: Literal['delivery', 'pickup'] = 'delivery'
     delivery_district: str | None = None
+
+
+class TransferRequest(BaseModel):
+    source_store_id: int
+    destination_store_id: int
+    product_id: int
+    size: int = Field(ge=30, le=55)
+    quantity: int = Field(default=1, ge=1, le=5)
+
+
+class TransferDecision(BaseModel):
+    status: Literal['approved', 'completed', 'rejected', 'cancelled']
 
 
 class StockAlertRequest(BaseModel):
@@ -576,6 +601,142 @@ def unsubscribe_stock(store_id: int, product_id: int, size: int,
 def estimate_delivery(district: str, store_id: int | None = None):
     with db() as conn:
         return delivery_quote(conn, district, store_id)
+
+
+
+def transfer_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    result = dict(row)
+    source = conn.execute('SELECT name FROM stores WHERE id=?',
+                          (row['source_store_id'],)).fetchone()
+    target = conn.execute('SELECT name FROM stores WHERE id=?',
+                          (row['destination_store_id'],)).fetchone()
+    product = conn.execute('SELECT name FROM products WHERE id=?',
+                           (row['product_id'],)).fetchone()
+    result['source_name'] = source['name'] if source else ''
+    result['destination_name'] = target['name'] if target else ''
+    result['product_name'] = product['name'] if product else ''
+    result['is_demo'] = True
+    return result
+
+
+@app.post('/transfers', status_code=201)
+def request_transfer(request: TransferRequest,
+                     user: dict = Depends(require_role('customer'))):
+    if request.source_store_id == request.destination_store_id:
+        raise HTTPException(422, 'Choose a different destination store')
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        for store_id in (request.source_store_id, request.destination_store_id):
+            if conn.execute('SELECT 1 FROM stores WHERE id=?', (store_id,)).fetchone() is None:
+                raise HTTPException(404, 'Store not found')
+        if conn.execute('SELECT 1 FROM products WHERE id=?', (request.product_id,)).fetchone() is None:
+            raise HTTPException(404, 'Product not found')
+        source = conn.execute('SELECT quantity FROM store_stock WHERE '
+                              'store_id=? AND product_id=? AND size=?',
+                              (request.source_store_id, request.product_id, request.size)).fetchone()
+        target = conn.execute('SELECT quantity FROM store_stock WHERE '
+                              'store_id=? AND product_id=? AND size=?',
+                              (request.destination_store_id, request.product_id, request.size)).fetchone()
+        if source is None or source['quantity'] < request.quantity:
+            raise HTTPException(409, 'Not enough units at the source branch')
+        if target is None or target['quantity'] > 0:
+            raise HTTPException(409, 'Destination already has this size')
+        existing = conn.execute(
+            "SELECT 1 FROM store_transfers WHERE user_id=? AND destination_store_id=? "
+            "AND product_id=? AND size=? AND status IN ('requested','approved')",
+            (user['id'],request.destination_store_id,request.product_id,request.size)).fetchone()
+        if existing is not None:
+            raise HTTPException(409, 'You already have a pending request for this size')
+        cur = conn.execute(
+            'INSERT INTO store_transfers(user_id,source_store_id,destination_store_id,'
+            'product_id,size,quantity,status,created_at,updated_at) '
+            "VALUES(?,?,?,?,?,?,'requested',?,?)",
+            (user['id'],request.source_store_id,request.destination_store_id,
+             request.product_id,request.size,request.quantity,timestamp(),timestamp()))
+        notify(conn, user['id'], 'Transfer requested',
+               f'Your size EU {request.size} transfer request #{cur.lastrowid} was created.')
+        row = conn.execute('SELECT * FROM store_transfers WHERE id=?',
+                           (cur.lastrowid,)).fetchone()
+        return transfer_dict(conn, row)
+
+
+@app.get('/transfers')
+def list_transfers(user: dict = Depends(require_user)):
+    with db() as conn:
+        if user['role'] == 'admin':
+            rows = conn.execute('SELECT * FROM store_transfers ORDER BY id DESC').fetchall()
+        elif user['role'] == 'customer':
+            rows = conn.execute('SELECT * FROM store_transfers WHERE user_id=? '
+                                'ORDER BY id DESC', (user['id'],)).fetchall()
+        else:
+            raise HTTPException(403, 'Not available for couriers')
+        return [transfer_dict(conn, row) for row in rows]
+
+
+@app.patch('/admin/transfers/{transfer_id}')
+def decide_transfer(transfer_id: int, decision: TransferDecision,
+                    _: dict = Depends(require_role('admin'))):
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute('SELECT * FROM store_transfers WHERE id=?',
+                           (transfer_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, 'Transfer not found')
+        current = row['status']
+        status = decision.status
+        if status == 'approved':
+            if current != 'requested':
+                raise HTTPException(409, 'Only new requests can be approved')
+            result = conn.execute(
+                'UPDATE store_stock SET quantity=quantity-? WHERE '
+                'store_id=? AND product_id=? AND size=? AND quantity>=?',
+                (row['quantity'],row['source_store_id'],row['product_id'],
+                 row['size'],row['quantity']))
+            if result.rowcount != 1:
+                raise HTTPException(409, 'Source no longer has enough units')
+            message = 'Transfer approved: item reserved at source'
+        elif status == 'completed':
+            if current != 'approved':
+                raise HTTPException(409, 'Approve the transfer first')
+            previous = conn.execute('SELECT quantity FROM store_stock WHERE '
+                'store_id=? AND product_id=? AND size=?',
+                (row['destination_store_id'],row['product_id'],row['size'])).fetchone()
+            previous_count = previous['quantity'] if previous else 0
+            conn.execute('INSERT INTO store_stock(store_id,product_id,size,quantity) '
+                         'VALUES(?,?,?,?) ON CONFLICT(store_id,product_id,size) '
+                         'DO UPDATE SET quantity=quantity+excluded.quantity',
+                         (row['destination_store_id'],row['product_id'],row['size'],row['quantity']))
+            if previous_count == 0:
+                waiting = conn.execute('SELECT user_id FROM restock_alerts WHERE '
+                    'active=1 AND store_id=? AND product_id=? AND size=?',
+                    (row['destination_store_id'],row['product_id'],row['size'])).fetchall()
+                for waiting_user in waiting:
+                    notify(conn,waiting_user['user_id'],'Size back in stock!',
+                           f"EU {row['size']} is now available in your chosen branch.")
+                conn.execute('UPDATE restock_alerts SET active=0 WHERE '
+                    'store_id=? AND product_id=? AND size=?',
+                    (row['destination_store_id'],row['product_id'],row['size']))
+            message = 'Transfer arrived: item is now available for purchase'
+        elif status in ('cancelled','rejected'):
+            if current == 'requested':
+                pass  # Nothing was reserved yet.
+            elif current == 'approved' and status == 'cancelled':
+                conn.execute('UPDATE store_stock SET quantity=quantity+? WHERE '
+                             'store_id=? AND product_id=? AND size=?',
+                             (row['quantity'],row['source_store_id'],
+                              row['product_id'],row['size']))
+            else:
+                raise HTTPException(409, 'This transition is not allowed')
+            message = 'Transfer request closed'
+        else:
+            raise HTTPException(422, 'Unsupported transfer decision')
+        conn.execute('UPDATE store_transfers SET status=?,updated_at=? WHERE id=?',
+                     (status,timestamp(),transfer_id))
+        notify(conn, row['user_id'], 'Sneaker transfer update',
+               f'Request #{transfer_id}: {message}.')
+        updated = conn.execute('SELECT * FROM store_transfers WHERE id=?',
+                               (transfer_id,)).fetchone()
+        return transfer_dict(conn,updated)
 
 
 @app.get('/health')
