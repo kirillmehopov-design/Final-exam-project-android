@@ -1,106 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import 'data/products.dart';
-import 'models/cart_item.dart';
-import 'models/product.dart';
-import 'screens/home_screen.dart';
+import 'providers/cart_provider.dart';
+import 'providers/notes_vault_provider.dart';
+import 'screens/catalog_screen.dart';
 
-void main() {
-  runApp(const SneakerHubApp());
+Future<void> main() async {
+  // LW11: Load theme, profile and notes BEFORE rendering the first frame.
+  WidgetsFlutterBinding.ensureInitialized();
+  final vault = await NotesVaultProvider.load();
+  runApp(GlobalCartApp(vault: vault));
 }
 
-class SneakerHubApp extends StatefulWidget {
-  const SneakerHubApp({super.key});
+class GlobalCartApp extends StatelessWidget {
+  const GlobalCartApp({super.key, required this.vault});
 
-  @override
-  State<SneakerHubApp> createState() => _SneakerHubAppState();
-}
-
-class _SneakerHubAppState extends State<SneakerHubApp> {
-  final Set<int> favoriteIds = {};
-  final List<CartItem> cartItems = [];
-
-  int get cartCount {
-    return cartItems.fold(
-      0,
-      (total, item) => total + item.quantity,
-    );
-  }
-
-  void toggleFavorite(int productId) {
-    setState(() {
-      if (favoriteIds.contains(productId)) {
-        favoriteIds.remove(productId);
-      } else {
-        favoriteIds.add(productId);
-      }
-    });
-  }
-
-  void addToCart(Product product, int size) {
-    setState(() {
-      final index = cartItems.indexWhere(
-        (item) => item.product.id == product.id && item.size == size,
-      );
-
-      if (index == -1) {
-        cartItems.add(
-          CartItem(
-            product: product,
-            size: size,
-          ),
-        );
-      } else {
-        cartItems[index].quantity++;
-      }
-    });
-  }
-
-  void increaseCartItem(CartItem item) {
-    setState(() {
-      item.quantity++;
-    });
-  }
-
-  void decreaseCartItem(CartItem item) {
-    setState(() {
-      if (item.quantity > 1) {
-        item.quantity--;
-      } else {
-        cartItems.remove(item);
-      }
-    });
-  }
-
-  void removeCartItem(CartItem item) {
-    setState(() {
-      cartItems.remove(item);
-    });
-  }
+  final NotesVaultProvider vault;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SneakerHub',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF111111),
-          brightness: Brightness.light,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
+        ChangeNotifierProvider<NotesVaultProvider>.value(value: vault),
+      ],
+      child: Consumer<NotesVaultProvider>(
+        builder: (context, settings, _) => MaterialApp(
+          title: 'Cloud Store + Offline Vault',
+          debugShowCheckedModeBanner: false,
+          themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF315BD8),
+              brightness: Brightness.light,
+            ),
+            appBarTheme: const AppBarTheme(centerTitle: false),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF315BD8),
+              brightness: Brightness.dark,
+            ),
+            appBarTheme: const AppBarTheme(centerTitle: false),
+          ),
+          home: const CatalogScreen(),
         ),
-        scaffoldBackgroundColor: const Color(0xFFF7F7F7),
-      ),
-      home: HomeScreen(
-        products: products,
-        favoriteIds: favoriteIds,
-        cartItems: cartItems,
-        cartCount: cartCount,
-        onToggleFavorite: toggleFavorite,
-        onAddToCart: addToCart,
-        onIncreaseCartItem: increaseCartItem,
-        onDecreaseCartItem: decreaseCartItem,
-        onRemoveCartItem: removeCartItem,
       ),
     );
   }

@@ -1,15 +1,17 @@
-name: sneakerhub
-description: Sneaker marketplace Flutter capstone project - Milestone 1.
-publish_to: "none"
-version: 1.0.0+1
+name: lab10_from_lab9
+description: Lab 9+10 Cloud Store with LW11 offline notes and settings persistence.
+publish_to: 'none'
+version: 1.1.0+2
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  http: ^1.2.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
