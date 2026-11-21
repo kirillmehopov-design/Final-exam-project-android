@@ -325,7 +325,7 @@ class BranchSupply(BaseModel):
 
 
 class OrderUpdate(BaseModel):
-    status: Literal['preparing', 'out_for_delivery']
+    status: Literal['preparing', 'out_for_delivery', 'ready_for_pickup']
     courier_id: int | None = None
 
 
@@ -718,15 +718,28 @@ def update_order(order_id: int, update: OrderUpdate, _: dict = Depends(require_r
             raise HTTPException(404, 'Order not found')
         if update.status == 'preparing' and row['status'] != 'placed':
             raise HTTPException(409, 'Order must be placed first')
-        if update.status == 'out_for_delivery' and row['status'] != 'preparing':
-            raise HTTPException(409, 'Order must be preparing first')
+        if update.status == 'out_for_delivery' and (
+            row['status'] != 'preparing' or row['fulfillment'] != 'delivery'
+        ):
+            raise HTTPException(409, 'Only prepared delivery orders can be dispatched')
+        if update.status == 'ready_for_pickup' and (
+            row['status'] != 'preparing' or row['fulfillment'] != 'pickup'
+        ):
+            raise HTTPException(409, 'Only prepared pickup orders can be marked ready')
         if update.status == 'out_for_delivery':
             courier = conn.execute("SELECT id FROM users WHERE id=? AND role='courier'", (update.courier_id,)).fetchone()
             if courier is None:
                 raise HTTPException(422, 'Choose a valid courier')
-        conn.execute('UPDATE orders SET status=?,courier_id=COALESCE(?,courier_id) WHERE id=?',
-                     (update.status, update.courier_id, order_id))
-        notify(conn, row['user_id'], 'Order status', f'Order #{order_id}: {update.status}')
+        if update.status == 'ready_for_pickup':
+            conn.execute("UPDATE orders SET status='ready_for_pickup', "
+                         "otp_expires=?,attempts=0 WHERE id=?",
+                         ((utcnow()+timedelta(days=3)).isoformat(), order_id))
+            notify(conn, row['user_id'], 'Ready for pickup',
+                   f'Order #{order_id} is ready. Open the pickup code at the store.')
+        else:
+            conn.execute('UPDATE orders SET status=?,courier_id=COALESCE(?,courier_id) WHERE id=?',
+                         (update.status, update.courier_id, order_id))
+            notify(conn, row['user_id'], 'Order status', f'Order #{order_id}: {update.status}')
         return order_dict(conn, conn.execute('SELECT * FROM orders WHERE id=?', (order_id,)).fetchone())
 
 
@@ -756,8 +769,8 @@ def courier_arrive(order_id: int, user: dict = Depends(require_role('courier')))
 def delivery_code(order_id: int, user: dict = Depends(require_role('customer'))):
     with db() as conn:
         row = visible_order(conn, order_id, user)
-        if row['status'] != 'arrived' or not row['otp_expires']:
-            raise HTTPException(409, 'Delivery code is not ready')
+        if row['status'] not in ('arrived', 'ready_for_pickup') or not row['otp_expires']:
+            raise HTTPException(409, 'Handoff code is not ready')
         if utcnow() >= datetime.fromisoformat(row['otp_expires']):
             raise HTTPException(410, 'Code expired. Ask courier to resend arrival notification.')
         return {'code': generate_code(order_id, row['otp_expires']),
@@ -788,6 +801,33 @@ def courier_deliver(order_id: int, request: CodeVerify,
         conn.execute('UPDATE users SET points=points+? WHERE id=?', (gained, row['user_id']))
         notify(conn, row['user_id'], 'Order delivered',
                f'Order #{order_id} delivered. You earned {gained} loyalty points!')
+        return {'ok': True, 'points_earned': gained}
+
+
+@app.post('/admin/orders/{order_id}/pickup')
+def confirm_pickup(order_id: int, request: CodeVerify,
+                   user: dict = Depends(require_role('admin'))):
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = visible_order(conn, order_id, user)
+        if row['fulfillment'] != 'pickup' or row['status'] != 'ready_for_pickup':
+            raise HTTPException(409, 'Order not ready for pickup')
+        if row['attempts'] >= 5:
+            raise HTTPException(429, 'Too many attempts')
+        if not row['otp_expires'] or utcnow() >= datetime.fromisoformat(row['otp_expires']):
+            raise HTTPException(410, 'Pickup code expired')
+        expected = generate_code(order_id, row['otp_expires'])
+        if not hmac.compare_digest(request.code, expected):
+            conn.execute('UPDATE orders SET attempts=attempts+1 WHERE id=?', (order_id,))
+            conn.commit()
+            raise HTTPException(400, 'Incorrect pickup code')
+        conn.execute("UPDATE orders SET status='delivered',otp_expires=NULL WHERE id=?",
+                     (order_id,))
+        gained = row['total_cents'] // 1_000_000
+        conn.execute('UPDATE users SET points=points+? WHERE id=?',
+                     (gained, row['user_id']))
+        notify(conn, row['user_id'], 'Order collected',
+               f'Pickup order #{order_id} collected at the store.')
         return {'ok': True, 'points_earned': gained}
 
 
