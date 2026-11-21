@@ -1,18 +1,19 @@
-name: Final from Lab 11 - Flutter checks
+name: Final from Lab 11 - fullstack checks
+
 on:
   push:
     branches: [feature/final-from-lab11]
   workflow_dispatch:
 
 jobs:
-  test:
+  flutter:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Generate platform scaffolding
+      - name: Generate Android and Web scaffolding
         run: flutter create --platforms=android,web .
       - name: Install packages
         run: flutter pub get
@@ -22,3 +23,22 @@ jobs:
         run: flutter test
       - name: Build web
         run: flutter build web --release
+      - name: Pack full Android-Web project
+        run: zip -q -r SneakerHub-Final-Lab11.zip . -x '.git/*' 'build/*' '.dart_tool/*' '.venv/*' '*.sqlite3' '.idea/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SneakerHub-Final-Lab11-Android-Web
+          path: SneakerHub-Final-Lab11.zip
+          retention-days: 14
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Test FastAPI / SQLite end-to-end flows
+        run: python -m pytest backend/tests -q
