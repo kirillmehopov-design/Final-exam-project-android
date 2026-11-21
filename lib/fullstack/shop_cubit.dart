@@ -192,6 +192,26 @@ class ShopCubit extends Cubit<ShopState> {
 
   Future<void> refresh() => run(_refreshAll, success: 'Updated');
 
+  /// Lightweight foreground sync so delivery arrivals and price-drop
+  /// notifications appear without manually reopening the app.
+  /// This is NOT a system push notification or background GPS tracking.
+  Future<void> pollUpdates() async {
+    if (state.user == null || state.busy || api.token == null) return;
+    try {
+      final updates = await Future.wait<dynamic>([
+        api.get('/orders'),
+        api.get('/notifications'),
+      ]);
+      if (isClosed || state.user == null) return;
+      emit(state.copyWith(
+        orders: asJsonList(updates[0]),
+        notifications: asJsonList(updates[1]),
+      ));
+    } catch (_) {
+      // Keep stale data during short network interruptions.
+    }
+  }
+
   Json? product(int id) {
     for (final p in state.products) {
       if (p['id'] == id) return p;

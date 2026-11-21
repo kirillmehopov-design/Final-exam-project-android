@@ -112,8 +112,29 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class Dashboard extends StatelessWidget {
+class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
+
+  @override
+  State<Dashboard> createState() => _DashboardState();
+}
+
+class _DashboardState extends State<Dashboard> {
+  Timer? _poller;
+
+  @override
+  void initState() {
+    super.initState();
+    _poller = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (mounted) context.read<ShopCubit>().pollUpdates();
+    });
+  }
+
+  @override
+  void dispose() {
+    _poller?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
