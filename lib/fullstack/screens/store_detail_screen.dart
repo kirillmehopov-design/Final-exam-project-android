@@ -48,7 +48,19 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('SneakerHub • Store')),
+      appBar: AppBar(
+        title: const Text('SneakerHub • Store'),
+        actions: [
+          IconButton(
+            tooltip: 'Open cart',
+            onPressed: () {
+              context.read<ShopCubit>().selectTab(3);
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            icon: const Icon(Icons.shopping_bag_outlined),
+          ),
+        ],
+      ),
       body: FutureBuilder<(Json, List<Json>)>(
         future: _future,
         builder: (context, snapshot) {

@@ -124,17 +124,17 @@ class _ProductPageState extends State<ProductPage> {
               final added = cubit.addToCart(widget.productId, selectedSize,
                 storeId: widget.storeId);
               if (added) {
-                Navigator.pop(context);
+                Navigator.of(context).popUntil((route) => route.isFirst);
                 cubit.selectTab(3);
               }
             }, icon: const Icon(Icons.add_shopping_cart),
               label: Text(available ? 'Add to cart' : 'Out of stock')),
-            if (selectedSize != null && widget.storeId != null)
+            if (selectedSize != null)
               Padding(padding: const EdgeInsets.only(top: 8),
                 child: OutlinedButton.icon(
                   onPressed: () => _showAvailability(context, selectedSize),
                   icon: const Icon(Icons.compare_arrows_rounded),
-                  label: const Text('Check this size at other stores'),
+                  label: const Text('Compare this size across stores'),
                 )),
             if (widget.storeId != null)
               Padding(padding: const EdgeInsets.only(top: 6),
