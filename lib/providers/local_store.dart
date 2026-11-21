@@ -7,6 +7,7 @@ import '../models/cart_line.dart';
 class LocalStore {
   static const _themeKey = 'sneakerhub.theme.dark';
   static const _cartKey = 'sneakerhub.cart.v1';
+  static const _cartStoreKey = 'sneakerhub.cart.store.v1';
   static const _favoritesKey = 'sneakerhub.favorites.v1';
 
   final SharedPreferences prefs;
@@ -16,6 +17,16 @@ class LocalStore {
 
   Future<void> saveDarkMode(bool enabled) =>
       prefs.setBool(_themeKey, enabled);
+
+  int? get cartStoreId => prefs.getInt(_cartStoreKey);
+
+  Future<void> saveCartStoreId(int? storeId) async {
+    if (storeId == null) {
+      await prefs.remove(_cartStoreKey);
+    } else {
+      await prefs.setInt(_cartStoreKey, storeId);
+    }
+  }
 
   List<CartLine> get cart {
     try {
@@ -61,6 +72,7 @@ class LocalStore {
 
   Future<void> clearShoppingData() async {
     await prefs.remove(_cartKey);
+    await prefs.remove(_cartStoreKey);
     await prefs.remove(_favoritesKey);
   }
 }

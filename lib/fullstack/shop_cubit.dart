@@ -24,6 +24,7 @@ class ShopState {
   final String? notice;
   final bool error;
   final int tab;
+  final int? storeId;
 
   const ShopState({
     this.busy = false,
@@ -40,6 +41,7 @@ class ShopState {
     this.notice,
     this.error = false,
     this.tab = 0,
+    this.storeId,
   });
 
   ShopState copyWith({
@@ -60,6 +62,8 @@ class ShopState {
     bool clearNotice = false,
     bool? error,
     int? tab,
+    int? storeId,
+    bool clearStore = false,
   }) {
     return ShopState(
       busy: busy ?? this.busy,
@@ -76,6 +80,7 @@ class ShopState {
       notice: clearNotice ? null : (notice ?? this.notice),
       error: error ?? this.error,
       tab: tab ?? this.tab,
+      storeId: clearStore ? null : (storeId ?? this.storeId),
     );
   }
 }
@@ -88,6 +93,7 @@ class ShopCubit extends Cubit<ShopState> {
       : super(ShopState(
           cart: localStore.cart,
           favorites: localStore.favorites,
+          storeId: localStore.cartStoreId,
         ));
 
   List<Json> _parseProducts(dynamic data) {
@@ -219,7 +225,14 @@ class ShopCubit extends Cubit<ShopState> {
     return null;
   }
 
-  void addToCart(int productId, int size) {
+  /// Switch branch only when the basket is empty: never silently mix stocks.
+  bool addToCart(int productId, int size, {int? storeId}) {
+    if (state.cart.isNotEmpty && state.storeId != storeId) {
+      emit(state.copyWith(notice:
+        'Cart has products from another store. Empty it before switching.',
+        error: true));
+      return false;
+    }
     final list = [...state.cart];
     final index = list.indexWhere((v) => v.productId == productId && v.size == size);
     if (index < 0) {
@@ -227,8 +240,11 @@ class ShopCubit extends Cubit<ShopState> {
     } else {
       list[index] = list[index].withQuantity(list[index].quantity + 1);
     }
-    emit(state.copyWith(cart: list, notice: 'Added to cart', error: false));
+    emit(state.copyWith(cart: list, storeId: storeId,
+        clearStore: storeId == null, notice: 'Added to cart', error: false));
     localStore.saveCart(list);
+    localStore.saveCartStoreId(storeId);
+    return true;
   }
 
   void changeQuantity(CartLine line, int quantity) {
@@ -240,9 +256,32 @@ class ShopCubit extends Cubit<ShopState> {
     } else {
       list[index] = list[index].withQuantity(quantity);
     }
-    emit(state.copyWith(cart: list));
+    emit(state.copyWith(cart: list, clearStore: list.isEmpty));
     localStore.saveCart(list);
+    if (list.isEmpty) localStore.saveCartStoreId(null);
   }
+
+  Future<bool> subscribeBackInStock(int storeId, int productId, int size) async {
+    try {
+      await api.post('/stores/$storeId/restock-alerts',
+        {'product_id': productId, 'size': size});
+      emit(state.copyWith(notice: 'We will notify you when EU $size is back.',
+        error: false));
+      return true;
+    } catch (error) {
+      emit(state.copyWith(notice: '$error', error: true));
+      return false;
+    }
+  }
+
+  Future<void> restockBranch(int storeId, int productId, int size, int count) =>
+      run(() async {
+        await api.post('/admin/store-supplies', {
+          'store_id': storeId, 'product_id': productId,
+          'size': size, 'quantity': count,
+        });
+        await _refreshAll();
+      }, success: 'Branch supply received. Subscribers notified.');
 
   Future<void> toggleFavorite(int productId) => run(() async {
         await api.post('/favorites/$productId');
@@ -251,19 +290,23 @@ class ShopCubit extends Cubit<ShopState> {
         await localStore.saveFavorites(favorites);
       }, success: 'Favorites updated');
 
-  Future<void> checkout(String address, String promo, bool usePoints) => run(() async {
+  Future<void> checkout(String address, String promo, bool usePoints,
+      {String fulfillment = 'delivery'}) => run(() async {
         await api.post('/orders', {
           'address': address,
           'promo_code': promo,
           'use_points': usePoints,
+          if (state.storeId != null) 'store_id': state.storeId,
+          'fulfillment': fulfillment,
           'items': state.cart.map((line) => {
             'product_id': line.productId,
             'size': line.size,
             'quantity': line.quantity,
           }).toList(),
         });
-        emit(state.copyWith(cart: [], tab: 4));
+        emit(state.copyWith(cart: [], tab: 4, clearStore: true));
         await localStore.saveCart([]);
+        await localStore.saveCartStoreId(null);
         await _refreshAll();
       }, success: 'Order placed!');
 
