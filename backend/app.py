@@ -204,6 +204,11 @@ def init_db() -> None:
             conn.execute('INSERT OR IGNORE INTO products '
                          '(id,name,brand,category,price_cents,discount,description,image_url) '
                          'VALUES (?,?,?,?,?,?,?,?)', product)
+            # Upgrade old demo USD-priced seed data to the KZT price list
+            # without overwriting admin-set discounts or user stock counts.
+            conn.execute('UPDATE products SET price_cents=? '
+                         'WHERE id=? AND price_cents < 100000',
+                         (product[4], product[0]))
             for size in range(39, 46):
                 conn.execute('INSERT OR IGNORE INTO stock (product_id,size,quantity) VALUES (?,?,?)',
                              (product[0], size, 7))
@@ -588,7 +593,7 @@ def courier_deliver(order_id: int, request: CodeVerify,
             conn.commit()
             raise HTTPException(400, 'Incorrect delivery code')
         conn.execute("UPDATE orders SET status='delivered',otp_expires=NULL WHERE id=?", (order_id,))
-        gained = row['total_cents'] // 1000  # 1 point per $10 spent
+        gained = row['total_cents'] // 1_000_000  # 1 point per 10,000 KZT spent
         conn.execute('UPDATE users SET points=points+? WHERE id=?', (gained, row['user_id']))
         notify(conn, row['user_id'], 'Order delivered',
                f'Order #{order_id} delivered. You earned {gained} loyalty points!')
