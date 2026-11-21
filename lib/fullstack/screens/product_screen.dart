@@ -109,6 +109,17 @@ class _ProductPageState extends State<ProductPage> {
                   onSelected: (_) => setState(() => size = int.parse(item.key)),
                 ),
             ]),
+            if (selectedSize != null && widget.storeId != null &&
+                (sizes['$selectedSize'] as int? ?? 0) <= 2 &&
+                (sizes['$selectedSize'] as int? ?? 0) > 0)
+              Padding(padding: const EdgeInsets.only(top: 8),
+                child: Row(children: [
+                  const Icon(Icons.local_fire_department, color: Colors.deepOrange),
+                  const SizedBox(width: 6),
+                  Text('Only ${sizes['$selectedSize']} pair(s) left in this store',
+                    style: const TextStyle(color: Colors.deepOrange,
+                      fontWeight: FontWeight.bold)),
+                ])),
             if (selectedSize != null && !available)
               Padding(padding: const EdgeInsets.only(top: 12), child:
                 OutlinedButton.icon(
@@ -118,6 +129,13 @@ class _ProductPageState extends State<ProductPage> {
                   },
                   icon: const Icon(Icons.notifications_active_outlined),
                   label: Text('Notify when EU $selectedSize is back'),
+                )),
+            if (selectedSize != null && !available && widget.storeId != null)
+              Padding(padding: const EdgeInsets.only(top: 6),
+                child: OutlinedButton.icon(
+                  onPressed: () => _requestTransfer(context, selectedSize),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Request from another SneakerHub store'),
                 )),
             const SizedBox(height: 14),
             FilledButton.icon(onPressed: !available ? null : () {
@@ -158,6 +176,58 @@ class _ProductPageState extends State<ProductPage> {
           ]))),
       ]),
     );
+  }
+
+  Future<void> _requestTransfer(BuildContext context, int requestedSize) async {
+    final cubit = context.read<ShopCubit>();
+    if (widget.storeId == null) return;
+    List<Json> locations;
+    try {
+      locations = asJsonList(await cubit.api.get(
+        '/products/${widget.productId}/availability?size=$requestedSize'));
+      locations.removeWhere((item) => item['store_id'] == widget.storeId);
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$error')));
+      return;
+    }
+    if (!context.mounted) return;
+    if (locations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other branches have this size right now')));
+      return;
+    }
+    final sourceId = await showDialog<int>(context: context, builder: (dialog) =>
+      AlertDialog(
+        title: Text('Transfer EU $requestedSize to this store'),
+        content: SizedBox(
+          width: 420,
+          height: 340,
+          child: ListView.separated(
+            itemCount: locations.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (ctx, index) {
+              final branch = locations[index];
+              return ListTile(
+                leading: const Icon(Icons.storefront_outlined),
+                title: Text(branch['store_name'] as String),
+                subtitle: Text('${branch['quantity']} pairs • ${branch['district']}'),
+                trailing: const Icon(Icons.add_circle_outline),
+                onTap: () => Navigator.pop(dialog, branch['store_id'] as int),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog),
+            child: const Text('Cancel')),
+        ],
+      ),
+    );
+    if (sourceId != null && context.mounted) {
+      await cubit.requestStoreTransfer(
+        sourceId, widget.storeId!, widget.productId, requestedSize);
+    }
   }
 
   Future<void> _showAvailability(BuildContext context, int selectedSize) async {
