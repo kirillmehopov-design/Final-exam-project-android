@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import pbkdf2_hmac, sha256
 import hmac
 import os
+import json
 from pathlib import Path
 import secrets
 import sqlite3
@@ -66,17 +67,40 @@ PRODUCTS = [
 # FICTIONAL demonstration branches. Coordinates and hours are illustrative,
 # NOT claims that real SneakerHub shops operate at these addresses.
 STORES = [
-    (1, 'SneakerHub Downtown', 'Almaly', 'Central Almaty / Arbat area', 43.2590, 76.9400, '10:00-21:00'),
-    (2, 'SneakerHub Abay', 'Almaly', 'Abay Avenue / Auezov area', 43.2440, 76.9250, '10:00-21:00'),
-    (3, 'SneakerHub Mega', 'Bostandyk', 'Rozybakiev Street / MEGA vicinity', 43.2030, 76.8930, '10:00-22:00'),
-    (4, 'SneakerHub Esentai', 'Bostandyk', 'Al-Farabi Avenue / Esentai vicinity', 43.2180, 76.9280, '10:00-22:00'),
-    (5, 'SneakerHub West', 'Auezov', 'Auezov district / Saina area', 43.2330, 76.8640, '10:00-21:00'),
-    (6, 'SneakerHub East', 'Medeu', 'Medeu district / Dostyk area', 43.2320, 76.9630, '10:00-21:00'),
-    (7, 'SneakerHub Zhetysu', 'Zhetysu', 'Zhetysu district / Raiymbek area', 43.2860, 76.9160, '10:00-20:00'),
-    (8, 'SneakerHub Airport', 'Turksib', 'Turksib district / Airport area', 43.3410, 77.0110, '10:00-20:00'),
-    (9, 'SneakerHub Alatau', 'Alatau', 'Alatau district / Nurkent area', 43.2750, 76.8130, '10:00-20:00'),
-    (10, 'SneakerHub Nauryzbay', 'Nauryzbay', 'Nauryzbay district / Kalkaman area', 43.2180, 76.8260, '10:00-20:00'),
+    (1, 'SneakerHub PULSE', 'Almaly', 'Central Almaty / Arbat area', 43.2590, 76.9400, '10:00-21:00'),
+    (2, 'SneakerHub AVENUE', 'Almaly', 'Abay Avenue / Auezov area', 43.2440, 76.9250, '10:00-21:00'),
+    (3, 'SneakerHub DISTRICT', 'Bostandyk', 'Rozybakiev Street / MEGA vicinity', 43.2030, 76.8930, '10:00-22:00'),
+    (4, 'SneakerHub SKYLINE', 'Bostandyk', 'Al-Farabi Avenue / Esentai vicinity', 43.2180, 76.9280, '10:00-22:00'),
+    (5, 'SneakerHub WESTSIDE', 'Auezov', 'Auezov district / Saina area', 43.2330, 76.8640, '10:00-21:00'),
+    (6, 'SneakerHub EASTLINE', 'Medeu', 'Medeu district / Dostyk area', 43.2320, 76.9630, '10:00-21:00'),
+    (7, 'SneakerHub JUNCTION', 'Zhetysu', 'Zhetysu district / Raiymbek area', 43.2860, 76.9160, '10:00-20:00'),
+    (8, 'SneakerHub TERMINAL', 'Turksib', 'Turksib district / Airport area', 43.3410, 77.0110, '10:00-20:00'),
+    (9, 'SneakerHub NOVA', 'Alatau', 'Alatau district / Nurkent area', 43.2750, 76.8130, '10:00-20:00'),
+    (10, 'SneakerHub HORIZON', 'Nauryzbay', 'Nauryzbay district / Kalkaman area', 43.2180, 76.8260, '10:00-20:00'),
 ]
+
+
+# All names, locations, images and opening hours below represent FICTIONAL
+# educational branches. Photo links are illustrations, not actual interiors.
+INTERIOR_PHOTOS = [
+    'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1200&q=80',
+]
+STORE_DESCRIPTIONS = {
+    1: 'Our city-center demo concept store: everyday classics, friendly fitting space and curated streetwear picks.',
+    2: 'An easygoing neighborhood sneaker spot with lifestyle silhouettes and a focus on comfort.',
+    3: 'A vibrant sneaker showroom featuring running shoes, modern streetwear and seasonal drops.',
+    4: 'A premium gallery-style flagship concept for statement sneakers and style inspiration.',
+    5: 'A relaxed west-side branch concept for practical everyday sneakers and popular sizes.',
+    6: 'An urban east-side boutique concept with fresh releases and minimalist displays.',
+    7: 'A community-focused sneaker hub with versatile footwear and casual looks.',
+    8: 'A convenient travel-inspired branch concept with lightweight and comfortable shoes.',
+    9: 'A spacious new-generation sneaker concept store with sports and streetwear ranges.',
+    10: 'A calm neighborhood boutique with an emphasis on fit, comfort and everyday essentials.',
+}
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -125,7 +149,25 @@ def init_db() -> None:
             name TEXT NOT NULL, district TEXT NOT NULL,
             address_hint TEXT NOT NULL,
             latitude REAL NOT NULL, longitude REAL NOT NULL,
-            hours TEXT NOT NULL
+            hours TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            photos_json TEXT NOT NULL DEFAULT '[]'
+        );
+        CREATE TABLE IF NOT EXISTS store_stock (
+            store_id INTEGER NOT NULL REFERENCES stores(id),
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            size INTEGER NOT NULL, quantity INTEGER NOT NULL DEFAULT 0
+                CHECK(quantity >= 0),
+            PRIMARY KEY(store_id, product_id, size)
+        );
+        CREATE TABLE IF NOT EXISTS restock_alerts (
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            store_id INTEGER NOT NULL REFERENCES stores(id),
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            size INTEGER NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(user_id,store_id,product_id,size)
         );
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE,
@@ -189,10 +231,20 @@ def init_db() -> None:
             UNIQUE(user_id, product_id)
         );
         ''')
+        store_fields = {c['name'] for c in conn.execute('PRAGMA table_info(stores)')}
+        if 'description' not in store_fields:
+            conn.execute("ALTER TABLE stores ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        if 'photos_json' not in store_fields:
+            conn.execute("ALTER TABLE stores ADD COLUMN photos_json TEXT NOT NULL DEFAULT '[]'")
         for store in STORES:
             conn.execute('INSERT OR IGNORE INTO stores '
                          '(id,name,district,address_hint,latitude,longitude,hours) '
                          'VALUES (?,?,?,?,?,?,?)', store)
+            images = [INTERIOR_PHOTOS[(store[0] + i) % len(INTERIOR_PHOTOS)]
+                      for i in range(3)]
+            conn.execute('UPDATE stores SET name=?,description=?,photos_json=? WHERE id=?',
+                         (store[1], STORE_DESCRIPTIONS[store[0]],
+                          json.dumps(images), store[0]))
         for email, role in [
             ('customer@demo.test', 'customer'),
             ('courier@demo.test', 'courier'),
@@ -212,6 +264,15 @@ def init_db() -> None:
             for size in range(39, 46):
                 conn.execute('INSERT OR IGNORE INTO stock (product_id,size,quantity) VALUES (?,?,?)',
                              (product[0], size, 7))
+                for store in STORES:
+                    branch_id, product_id = store[0], product[0]
+                    quantity = (0 if (branch_id + product_id) % 11 == 0
+                                or (branch_id * 3 + product_id + size) % 7 == 0
+                                else (branch_id + product_id + size) % 6 + 1)
+                    conn.execute(
+                        'INSERT OR IGNORE INTO store_stock '
+                        '(store_id,product_id,size,quantity) VALUES (?,?,?,?)',
+                        (branch_id, product_id, size, quantity))
 
 
 @asynccontextmanager
@@ -323,6 +384,29 @@ def visible_order(conn: sqlite3.Connection, order_id: int, user: dict) -> sqlite
     return row
 
 
+def store_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    result = dict(row)
+    result['photos'] = json.loads(result.pop('photos_json') or '[]')
+    result['is_demo'] = True
+    result['available_models'] = conn.execute(
+        'SELECT COUNT(DISTINCT product_id) FROM store_stock '
+        'WHERE store_id=? AND quantity>0', (row['id'],)).fetchone()[0]
+    return result
+
+
+def branch_product(conn: sqlite3.Connection, store_id: int,
+                   row: sqlite3.Row) -> dict:
+    result = product_dict(conn, row)
+    result['sizes'] = {str(size['size']): size['quantity'] for size in conn.execute(
+        'SELECT size,quantity FROM store_stock '
+        'WHERE store_id=? AND product_id=? ORDER BY size',
+        (store_id, row['id']))}
+    result['store_id'] = store_id
+    result['total_units'] = sum(result['sizes'].values())
+    result['available_sizes'] = [int(k) for k,v in result['sizes'].items() if v>0]
+    return result
+
+
 @app.get('/stores')
 def store_locations(district: str = ''):
     """Ten fictional SneakerHub locations, for educational demonstration."""
@@ -332,16 +416,36 @@ def store_locations(district: str = ''):
                                 (district.strip(),)).fetchall()
         else:
             rows = conn.execute('SELECT * FROM stores ORDER BY id').fetchall()
-    return [{**dict(row), 'is_demo': True} for row in rows]
+        return [store_dict(conn, row) for row in rows]
 
 
 @app.get('/stores/{store_id}')
 def store_detail(store_id: int):
     with db() as conn:
         row = conn.execute('SELECT * FROM stores WHERE id=?', (store_id,)).fetchone()
-    if row is None:
-        raise HTTPException(404, 'Store not found')
-    return {**dict(row), 'is_demo': True}
+        if row is None:
+            raise HTTPException(404, 'Store not found')
+        return store_dict(conn, row)
+
+
+@app.get('/stores/{store_id}/products')
+def store_products(store_id: int):
+    with db() as conn:
+        if conn.execute('SELECT 1 FROM stores WHERE id=?', (store_id,)).fetchone() is None:
+            raise HTTPException(404, 'Store not found')
+        rows = conn.execute('SELECT * FROM products ORDER BY id').fetchall()
+        return [branch_product(conn, store_id, row) for row in rows]
+
+
+@app.get('/stores/{store_id}/products/{product_id}')
+def store_product(store_id: int, product_id: int):
+    with db() as conn:
+        if conn.execute('SELECT 1 FROM stores WHERE id=?', (store_id,)).fetchone() is None:
+            raise HTTPException(404, 'Store not found')
+        row = conn.execute('SELECT * FROM products WHERE id=?', (product_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, 'Product not found')
+        return branch_product(conn, store_id, row)
 
 
 @app.get('/health')
