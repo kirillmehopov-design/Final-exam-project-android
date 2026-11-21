@@ -27,6 +27,10 @@ void main() {
     expect(find.text('Hello, Damir!'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('new-note-field')), 'My homework');
+    // Scroll the action above the snackbar left by the username save.
+    await tester.ensureVisible(find.byKey(const ValueKey('add-note')));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -230));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('add-note')));
     await tester.pumpAndSettle();
     expect(find.text('My homework'), findsOneWidget);
