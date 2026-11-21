@@ -291,13 +291,15 @@ class ShopCubit extends Cubit<ShopState> {
       }, success: 'Favorites updated');
 
   Future<void> checkout(String address, String promo, bool usePoints,
-      {String fulfillment = 'delivery'}) => run(() async {
+      {String fulfillment = 'delivery', String? deliveryDistrict}) => run(() async {
         await api.post('/orders', {
           'address': address,
           'promo_code': promo,
           'use_points': usePoints,
           if (state.storeId != null) 'store_id': state.storeId,
           'fulfillment': fulfillment,
+          if (fulfillment == 'delivery' && deliveryDistrict != null)
+            'delivery_district': deliveryDistrict,
           'items': state.cart.map((line) => {
             'product_id': line.productId,
             'size': line.size,
@@ -318,6 +320,33 @@ class ShopCubit extends Cubit<ShopState> {
         });
         await _refreshAll();
       }, success: 'Order updated');
+
+  Future<bool> requestStoreTransfer(int sourceStore, int destinationStore,
+      int productId, int size) async {
+    try {
+      await api.post('/transfers', {
+        'source_store_id': sourceStore,
+        'destination_store_id': destinationStore,
+        'product_id': productId,
+        'size': size,
+        'quantity': 1,
+      });
+      emit(state.copyWith(notice: 'Transfer request submitted to admin.',
+        error: false));
+      return true;
+    } catch (error) {
+      emit(state.copyWith(notice: '$error', error: true));
+      return false;
+    }
+  }
+
+  Future<List<Json>> transferRequests() async =>
+      asJsonList(await api.get('/transfers'));
+
+  Future<void> adminTransferDecision(int id, String status) => run(() async {
+    await api.patch('/admin/transfers/$id', {'status': status});
+    await _refreshAll();
+  }, success: 'Transfer updated');
 
   Future<void> confirmPickup(int orderId, String code) => run(() async {
         await api.post('/admin/orders/$orderId/pickup', {'code': code});
