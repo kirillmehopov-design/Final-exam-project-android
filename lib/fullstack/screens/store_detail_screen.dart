@@ -168,6 +168,12 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final item = visible[index];
                         final count = item['total_units'] as int;
+                        final availableSizes = Map<String, dynamic>.from(
+                          item['sizes'] as Map);
+                        final scarce = availableSizes.entries.where((entry) {
+                          final n = (entry.value as num).toInt();
+                          return n > 0 && n <= 2;
+                        }).map((entry) => entry.key).toList();
                         return Card(
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
@@ -186,9 +192,15 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                                         style: Theme.of(context).textTheme.bodySmall),
                                       Text(money(amount(item)),
                                         style: const TextStyle(fontWeight: FontWeight.w900)),
-                                      Text(count > 0 ? '$count units available' : 'Sold out • Notify me',
+                                      Text(count > 0 ? '$count total units in branch' : 'Sold out • Notify me',
                                         style: TextStyle(fontSize: 11,
                                           color: count > 0 ? Colors.green : Colors.red)),
+                                      if (scarce.isNotEmpty)
+                                        Text('Low stock EU ${scarce.take(3).join(', ')}',
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 11, color: Colors.deepOrange,
+                                            fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
