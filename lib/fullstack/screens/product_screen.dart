@@ -129,6 +129,13 @@ class _ProductPageState extends State<ProductPage> {
               }
             }, icon: const Icon(Icons.add_shopping_cart),
               label: Text(available ? 'Add to cart' : 'Out of stock')),
+            if (selectedSize != null && widget.storeId != null)
+              Padding(padding: const EdgeInsets.only(top: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => _showAvailability(context, selectedSize),
+                  icon: const Icon(Icons.compare_arrows_rounded),
+                  label: const Text('Check this size at other stores'),
+                )),
             if (widget.storeId != null)
               Padding(padding: const EdgeInsets.only(top: 6),
                 child: Text('Branch #${widget.storeId} • Availability and sizes are per store.',
@@ -151,6 +158,55 @@ class _ProductPageState extends State<ProductPage> {
           ]))),
       ]),
     );
+  }
+
+  Future<void> _showAvailability(BuildContext context, int selectedSize) async {
+    List<Json> locations;
+    try {
+      locations = asJsonList(await context.read<ShopCubit>().api.get(
+        '/products/${widget.productId}/availability?size=$selectedSize'));
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not compare stores: $error')));
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    await showDialog<void>(context: context, builder: (dialog) => AlertDialog(
+      title: Text('EU $selectedSize • Stores with stock'),
+      content: SizedBox(
+        width: 420, height: 390,
+        child: locations.isEmpty
+          ? const Center(child: Text('No branches have this size right now.'))
+          : ListView.separated(
+            itemCount: locations.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (_, index) {
+              final store = locations[index];
+              return ListTile(
+                leading: const Icon(Icons.storefront_outlined),
+                title: Text(store['store_name'] as String),
+                subtitle: Text('${store['district']} • ${store['quantity']} pairs'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(dialog);
+                  Navigator.of(context).push<void>(MaterialPageRoute(
+                    builder: (_) => BlocProvider.value(
+                      value: context.read<ShopCubit>(),
+                      child: StoreDetailPage(storeId: store['store_id'] as int),
+                    ),
+                  ));
+                },
+              );
+            },
+          ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog),
+          child: const Text('Close')),
+      ],
+    ));
   }
 
   Future<void> _writeReview(BuildContext context) async {
