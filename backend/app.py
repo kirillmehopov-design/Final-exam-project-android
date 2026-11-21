@@ -200,6 +200,8 @@ def init_db() -> None:
             courier_id INTEGER REFERENCES users(id),
             address TEXT NOT NULL, status TEXT NOT NULL,
             total_cents INTEGER NOT NULL, redeemed_points INTEGER NOT NULL DEFAULT 0,
+            store_id INTEGER REFERENCES stores(id),
+            fulfillment TEXT NOT NULL DEFAULT 'delivery',
             otp_expires TEXT, attempts INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
         );
@@ -231,6 +233,11 @@ def init_db() -> None:
             UNIQUE(user_id, product_id)
         );
         ''')
+        order_fields = {c['name'] for c in conn.execute('PRAGMA table_info(orders)')}
+        if 'store_id' not in order_fields:
+            conn.execute('ALTER TABLE orders ADD COLUMN store_id INTEGER REFERENCES stores(id)')
+        if 'fulfillment' not in order_fields:
+            conn.execute("ALTER TABLE orders ADD COLUMN fulfillment TEXT NOT NULL DEFAULT 'delivery'")
         store_fields = {c['name'] for c in conn.execute('PRAGMA table_info(stores)')}
         if 'description' not in store_fields:
             conn.execute("ALTER TABLE stores ADD COLUMN description TEXT NOT NULL DEFAULT ''")
@@ -301,6 +308,20 @@ class Checkout(BaseModel):
     address: str = Field(min_length=8, max_length=250)
     promo_code: str = ''
     use_points: bool = False
+    store_id: int | None = None
+    fulfillment: Literal['delivery', 'pickup'] = 'delivery'
+
+
+class StockAlertRequest(BaseModel):
+    product_id: int
+    size: int = Field(ge=30, le=55)
+
+
+class BranchSupply(BaseModel):
+    store_id: int
+    product_id: int
+    size: int = Field(ge=30, le=55)
+    quantity: int = Field(ge=1, le=10000)
 
 
 class OrderUpdate(BaseModel):
@@ -370,6 +391,9 @@ def product_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
 
 def order_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
     result = dict(row)
+    if row['store_id'] is not None:
+        store = conn.execute('SELECT name FROM stores WHERE id=?', (row['store_id'],)).fetchone()
+        result['store_name'] = store['name'] if store else None
     result['items'] = [dict(x) for x in conn.execute('SELECT i.*,p.name,p.image_url FROM order_items i '
                   'JOIN products p ON p.id=i.product_id WHERE i.order_id=? ORDER BY i.id', (row['id'],))]
     return result
@@ -446,6 +470,54 @@ def store_product(store_id: int, product_id: int):
         if row is None:
             raise HTTPException(404, 'Product not found')
         return branch_product(conn, store_id, row)
+
+
+
+@app.post('/stores/{store_id}/restock-alerts')
+def subscribe_stock(store_id: int, request: StockAlertRequest,
+                    user: dict = Depends(require_role('customer'))):
+    with db() as conn:
+        if conn.execute('SELECT 1 FROM stores WHERE id=?', (store_id,)).fetchone() is None:
+            raise HTTPException(404, 'Store not found')
+        product = conn.execute('SELECT id FROM products WHERE id=?', (request.product_id,)).fetchone()
+        if product is None:
+            raise HTTPException(404, 'Product not found')
+        row = conn.execute('SELECT quantity FROM store_stock '
+                           'WHERE store_id=? AND product_id=? AND size=?',
+                           (store_id, request.product_id, request.size)).fetchone()
+        if row is None:
+            raise HTTPException(404, 'Product size not found')
+        if row['quantity'] > 0:
+            raise HTTPException(409, 'Size is already available at this branch')
+        conn.execute('INSERT INTO restock_alerts '
+                     '(user_id,store_id,product_id,size,active,created_at) '
+                     'VALUES(?,?,?,?,1,?) ON CONFLICT(user_id,store_id,product_id,size) '
+                     'DO UPDATE SET active=1, created_at=excluded.created_at',
+                     (user['id'], store_id, request.product_id, request.size, timestamp()))
+        return {'subscribed': True, 'store_id': store_id, 'product_id': request.product_id, 'size': request.size}
+
+
+@app.get('/restock-alerts')
+def subscriptions(user: dict = Depends(require_role('customer'))):
+    with db() as conn:
+        return [dict(row) for row in conn.execute(
+            'SELECT a.*,s.name AS store_name,p.name AS product_name '
+            'FROM restock_alerts a JOIN stores s ON s.id=a.store_id '
+            'JOIN products p ON p.id=a.product_id '
+            'WHERE a.user_id=? AND a.active=1 ORDER BY a.created_at DESC',
+            (user['id'],))]
+
+
+@app.delete('/restock-alerts/{store_id}/{product_id}/{size}')
+def unsubscribe_stock(store_id: int, product_id: int, size: int,
+                      user: dict = Depends(require_role('customer'))):
+    with db() as conn:
+        result = conn.execute('UPDATE restock_alerts SET active=0 '
+                              'WHERE user_id=? AND store_id=? AND product_id=? AND size=?',
+                              (user['id'], store_id, product_id, size))
+        if not result.rowcount:
+            raise HTTPException(404, 'Subscription not found')
+        return {'ok': True}
 
 
 @app.get('/health')
@@ -560,6 +632,11 @@ def checkout(request: Checkout, user: dict = Depends(require_role('customer'))):
         raise HTTPException(422, 'Address is required')
     with db() as conn:
         conn.execute('BEGIN IMMEDIATE')
+        if request.store_id is not None:
+            if conn.execute('SELECT 1 FROM stores WHERE id=?', (request.store_id,)).fetchone() is None:
+                raise HTTPException(404, 'Store not found')
+        if request.fulfillment == 'pickup' and request.store_id is None:
+            raise HTTPException(422, 'Choose a branch for pickup')
         subtotal = 0
         purchase: list[tuple[int, int, int, int]] = []
         quantities: dict[tuple[int, int], int] = {}
@@ -570,8 +647,13 @@ def checkout(request: Checkout, user: dict = Depends(require_role('customer'))):
             raise HTTPException(422, 'Maximum 20 units of each size per order')
         for (product_id, size), quantity in quantities.items():
             row = conn.execute('SELECT * FROM products WHERE id=?', (product_id,)).fetchone()
-            stock = conn.execute('SELECT quantity FROM stock WHERE product_id=? AND size=?',
-                                 (product_id, size)).fetchone()
+            if request.store_id is None:
+                stock = conn.execute('SELECT quantity FROM stock WHERE product_id=? AND size=?',
+                                     (product_id, size)).fetchone()
+            else:
+                stock = conn.execute('SELECT quantity FROM store_stock '
+                                     'WHERE store_id=? AND product_id=? AND size=?',
+                                     (request.store_id, product_id, size)).fetchone()
             if row is None or stock is None or stock['quantity'] < quantity:
                 raise HTTPException(409, f'Not enough stock for product {product_id}, size {size}')
             unit_price = priced(row)
@@ -584,13 +666,18 @@ def checkout(request: Checkout, user: dict = Depends(require_role('customer'))):
         points = min(user['points'], (subtotal - coupon_discount) // 100) if request.use_points else 0
         total = subtotal - coupon_discount - points * 100
         conn.execute('UPDATE users SET points=points-? WHERE id=?', (points, user['id']))
-        cursor = conn.execute('INSERT INTO orders(user_id,address,status,total_cents,redeemed_points,created_at) '
-                              'VALUES(?,?,?,?,?,?)',
-                              (user['id'], request.address.strip(), 'placed', total, points, timestamp()))
+        cursor = conn.execute('INSERT INTO orders(user_id,address,status,total_cents,redeemed_points,created_at,store_id,fulfillment) '
+                              'VALUES(?,?,?,?,?,?,?,?)',
+                              (user['id'], request.address.strip(), 'placed', total, points, timestamp(), request.store_id, request.fulfillment))
         order_id = cursor.lastrowid
         for pid, size, quantity, unit_price in purchase:
-            conn.execute('UPDATE stock SET quantity=quantity-? WHERE product_id=? AND size=?',
-                         (quantity, pid, size))
+            if request.store_id is None:
+                conn.execute('UPDATE stock SET quantity=quantity-? WHERE product_id=? AND size=?',
+                             (quantity, pid, size))
+            else:
+                conn.execute('UPDATE store_stock SET quantity=quantity-? '
+                             'WHERE store_id=? AND product_id=? AND size=?',
+                             (quantity, request.store_id, pid, size))
             conn.execute('INSERT INTO order_items(order_id,product_id,size,quantity,price_cents) '
                          'VALUES(?,?,?,?,?)', (order_id, pid, size, quantity, unit_price))
         notify(conn, user['id'], 'Order placed', f'Order #{order_id} was created successfully.')
@@ -733,6 +820,41 @@ def add_supply(supply: Supply, user: dict = Depends(require_role('admin'))):
                      'VALUES(?,?,?,?,?)',
                      (user['id'], supply.product_id, supply.size, supply.quantity, timestamp()))
         return {'ok': True}
+
+
+
+@app.post('/admin/store-supplies', status_code=201)
+def restock_store(supply: BranchSupply, user: dict = Depends(require_role('admin'))):
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        branch = conn.execute('SELECT name FROM stores WHERE id=?',
+                              (supply.store_id,)).fetchone()
+        product = conn.execute('SELECT name FROM products WHERE id=?',
+                               (supply.product_id,)).fetchone()
+        if branch is None or product is None:
+            raise HTTPException(404, 'Unknown store or product')
+        old = conn.execute('SELECT quantity FROM store_stock '
+                           'WHERE store_id=? AND product_id=? AND size=?',
+                           (supply.store_id, supply.product_id, supply.size)).fetchone()
+        previous = old['quantity'] if old is not None else 0
+        conn.execute('INSERT INTO store_stock(store_id,product_id,size,quantity) '
+                     'VALUES(?,?,?,?) ON CONFLICT(store_id,product_id,size) '
+                     'DO UPDATE SET quantity=quantity+excluded.quantity',
+                     (supply.store_id,supply.product_id,supply.size,supply.quantity))
+        sent = 0
+        if previous == 0:
+            waiting = conn.execute('SELECT user_id FROM restock_alerts '
+                                   'WHERE active=1 AND store_id=? AND product_id=? AND size=?',
+                                   (supply.store_id,supply.product_id,supply.size)).fetchall()
+            for row in waiting:
+                notify(conn, row['user_id'], 'Size back in stock!',
+                       f"{product['name']} EU {supply.size} is now available at {branch['name']}.")
+                sent += 1
+            conn.execute('UPDATE restock_alerts SET active=0 '
+                         'WHERE store_id=? AND product_id=? AND size=?',
+                         (supply.store_id,supply.product_id,supply.size))
+        return {'ok': True, 'previous': previous,
+                'current': previous+supply.quantity, 'alerts_sent': sent}
 
 
 @app.get('/admin/supplies')
