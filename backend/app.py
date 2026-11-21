@@ -102,6 +102,45 @@ STORE_DESCRIPTIONS = {
     10: 'A calm neighborhood boutique with an emphasis on fit, comfort and everyday essentials.',
 }
 
+# Illustrative tariffs in KZT. These are NOT carrier quotes or live GPS ETAs.
+DELIVERY_AREAS_KZT = {
+    'Almaly': 1500,
+    'Auezov': 1800,
+    'Bostandyk': 1600,
+    'Medeu': 1900,
+    'Zhetysu': 2100,
+    'Turksib': 2500,
+    'Alatau': 2600,
+    'Nauryzbay': 2800,
+}
+
+
+def delivery_quote(conn: sqlite3.Connection, district: str,
+                   store_id: int | None = None) -> dict:
+    destination = next((x for x in DELIVERY_AREAS_KZT
+                        if x.casefold() == district.strip().casefold()), None)
+    if destination is None:
+        raise HTTPException(422, 'Choose one of the eight Almaty districts')
+    source = None
+    if store_id is not None:
+        row = conn.execute('SELECT district FROM stores WHERE id=?', (store_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, 'Store not found')
+        source = row['district']
+    same_area = source == destination
+    # 400 KZT discount for delivery within the same district.
+    fee_kzt = DELIVERY_AREAS_KZT[destination] - (400 if same_area else 0)
+    eta_min = 1 if same_area else 2
+    eta_max = 2 if same_area else 3
+    return {
+        'district': destination, 'store_id': store_id,
+        'fee_cents': fee_kzt * 100,
+        'eta_min_days': eta_min, 'eta_max_days': eta_max,
+        'is_demo': True,
+        'note': 'Demo estimate only; not a real courier quote or live route.',
+    }
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -202,6 +241,10 @@ def init_db() -> None:
             total_cents INTEGER NOT NULL, redeemed_points INTEGER NOT NULL DEFAULT 0,
             store_id INTEGER REFERENCES stores(id),
             fulfillment TEXT NOT NULL DEFAULT 'delivery',
+            delivery_district TEXT,
+            delivery_fee_cents INTEGER NOT NULL DEFAULT 0,
+            eta_min_days INTEGER NOT NULL DEFAULT 0,
+            eta_max_days INTEGER NOT NULL DEFAULT 0,
             otp_expires TEXT, attempts INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
         );
@@ -238,6 +281,14 @@ def init_db() -> None:
             conn.execute('ALTER TABLE orders ADD COLUMN store_id INTEGER REFERENCES stores(id)')
         if 'fulfillment' not in order_fields:
             conn.execute("ALTER TABLE orders ADD COLUMN fulfillment TEXT NOT NULL DEFAULT 'delivery'")
+        if 'delivery_district' not in order_fields:
+            conn.execute('ALTER TABLE orders ADD COLUMN delivery_district TEXT')
+        if 'delivery_fee_cents' not in order_fields:
+            conn.execute('ALTER TABLE orders ADD COLUMN delivery_fee_cents INTEGER NOT NULL DEFAULT 0')
+        if 'eta_min_days' not in order_fields:
+            conn.execute('ALTER TABLE orders ADD COLUMN eta_min_days INTEGER NOT NULL DEFAULT 0')
+        if 'eta_max_days' not in order_fields:
+            conn.execute('ALTER TABLE orders ADD COLUMN eta_max_days INTEGER NOT NULL DEFAULT 0')
         store_fields = {c['name'] for c in conn.execute('PRAGMA table_info(stores)')}
         if 'description' not in store_fields:
             conn.execute("ALTER TABLE stores ADD COLUMN description TEXT NOT NULL DEFAULT ''")
@@ -310,6 +361,7 @@ class Checkout(BaseModel):
     use_points: bool = False
     store_id: int | None = None
     fulfillment: Literal['delivery', 'pickup'] = 'delivery'
+    delivery_district: str | None = None
 
 
 class StockAlertRequest(BaseModel):
@@ -520,6 +572,12 @@ def unsubscribe_stock(store_id: int, product_id: int, size: int,
         return {'ok': True}
 
 
+@app.get('/delivery/estimate')
+def estimate_delivery(district: str, store_id: int | None = None):
+    with db() as conn:
+        return delivery_quote(conn, district, store_id)
+
+
 @app.get('/health')
 def health():
     return {'status': 'ok'}
@@ -655,6 +713,11 @@ def checkout(request: Checkout, user: dict = Depends(require_role('customer'))):
                 raise HTTPException(404, 'Store not found')
         if request.fulfillment == 'pickup' and request.store_id is None:
             raise HTTPException(422, 'Choose a branch for pickup')
+        if request.fulfillment == 'delivery' and request.store_id is not None and not request.delivery_district:
+            raise HTTPException(422, 'Choose the delivery district')
+        quote = (delivery_quote(conn, request.delivery_district, request.store_id)
+                 if request.fulfillment == 'delivery' and request.delivery_district else None)
+        fee_cents = quote['fee_cents'] if quote is not None else 0
         subtotal = 0
         purchase: list[tuple[int, int, int, int]] = []
         quantities: dict[tuple[int, int], int] = {}
@@ -682,11 +745,18 @@ def checkout(request: Checkout, user: dict = Depends(require_role('customer'))):
             raise HTTPException(422, 'Unknown promo code')
         coupon_discount = subtotal // 10 if coupon == 'WELCOME10' else 0
         points = min(user['points'], (subtotal - coupon_discount) // 100) if request.use_points else 0
-        total = subtotal - coupon_discount - points * 100
+        # Price is recalculated server-side; the client cannot supply a fake fee.
+        total = subtotal - coupon_discount - points * 100 + fee_cents
         conn.execute('UPDATE users SET points=points-? WHERE id=?', (points, user['id']))
-        cursor = conn.execute('INSERT INTO orders(user_id,address,status,total_cents,redeemed_points,created_at,store_id,fulfillment) '
-                              'VALUES(?,?,?,?,?,?,?,?)',
-                              (user['id'], request.address.strip(), 'placed', total, points, timestamp(), request.store_id, request.fulfillment))
+        cursor = conn.execute(
+            'INSERT INTO orders(user_id,address,status,total_cents,redeemed_points,'
+            'created_at,store_id,fulfillment,delivery_district,delivery_fee_cents,'
+            'eta_min_days,eta_max_days) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+            (user['id'],request.address.strip(),'placed',total,points,timestamp(),
+             request.store_id,request.fulfillment,
+             quote['district'] if quote else None, fee_cents,
+             quote['eta_min_days'] if quote else 0,
+             quote['eta_max_days'] if quote else 0))
         order_id = cursor.lastrowid
         for pid, size, quantity, unit_price in purchase:
             if request.store_id is None:
