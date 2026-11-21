@@ -120,7 +120,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cloud Product Catalog'),
+        title: const Text('SneakerHub'),
         actions: [
           IconButton(
             tooltip: 'Offline Notes & Settings',

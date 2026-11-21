@@ -24,6 +24,18 @@ class Product {
   final int reviewCount;
   final List<String> additionalImages;
 
+  /// Serialise the same product data to local JSON for the persisted cart.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'price': price,
+        'description': description,
+        'category': category,
+        'image': imageUrl,
+        'rating': {'rate': rating, 'count': reviewCount},
+        'images': additionalImages,
+      };
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final ratingObject = json['rating'];
     final ratingJson = ratingObject is Map
