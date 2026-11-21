@@ -7,8 +7,24 @@ class InventoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final products = context.watch<ShopCubit>().state.products;
     return ListView(padding: const EdgeInsets.all(12), children: [
-      const Padding(padding: EdgeInsets.all(8), child: Text('Warehouse / Supplies',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            const Text('Warehouse / Supplies',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            OutlinedButton.icon(
+              onPressed: () => _history(context),
+              icon: const Icon(Icons.history),
+              label: const Text('Supply history'),
+            ),
+          ],
+        ),
+      ),
       for (final p in products) Card(child: Padding(padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(p['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -26,6 +42,49 @@ class InventoryPage extends StatelessWidget {
           ]),
         ]))),
     ]);
+  }
+
+  Future<void> _history(BuildContext context) async {
+    try {
+      final data = await context.read<ShopCubit>().api.get('/admin/supplies');
+      final records = asJsonList(data);
+      if (!context.mounted) return;
+      await showDialog<void>(context: context, builder: (dialog) => AlertDialog(
+        title: const Text('Received shipments'),
+        content: SizedBox(
+          width: 480, height: 370,
+          child: records.isEmpty
+              ? const Center(child: Text('No stock deliveries recorded yet'))
+              : ListView.separated(
+                  itemCount: records.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final entry = records[i];
+                    final product = context.read<ShopCubit>()
+                        .product(entry['product_id'] as int);
+                    return ListTile(
+                      leading: const Icon(Icons.inventory_outlined),
+                      title: Text(product?['name'] as String? ??
+                          'Product #${entry['product_id']}'),
+                      subtitle: Text('EU ${entry['size']} • ${entry['created_at']}',
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                      trailing: Text('+${entry['quantity']}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog),
+            child: const Text('Close')),
+        ],
+      ));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load shipments: $error')),
+      );
+    }
   }
 
   Future<void> _supply(BuildContext context, Json product) async {
