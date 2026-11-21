@@ -582,6 +582,24 @@ def products(q: str = '', brand: str = '', category: str = '',
         return result
 
 
+@app.get('/products/{product_id}/availability')
+def check_branch_availability(product_id: int,
+                              size: int = Query(ge=30, le=55)):
+    with db() as conn:
+        p = conn.execute('SELECT 1 FROM products WHERE id=?', (product_id,)).fetchone()
+        if p is None:
+            raise HTTPException(404, 'Product not found')
+        return [
+            {**dict(row), 'is_demo': True}
+            for row in conn.execute(
+                'SELECT s.id AS store_id,s.name AS store_name,'
+                's.district,s.address_hint,v.quantity '
+                'FROM store_stock v JOIN stores s ON s.id=v.store_id '
+                'WHERE v.product_id=? AND v.size=? AND v.quantity>0 '
+                'ORDER BY v.quantity DESC,s.name', (product_id,size))
+        ]
+
+
 @app.get('/products/{product_id}/reviews')
 def reviews(product_id: int):
     with db() as conn:
