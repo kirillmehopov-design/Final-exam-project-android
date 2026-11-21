@@ -2,7 +2,8 @@ part of '../shop_ui.dart';
 
 class ProductPage extends StatefulWidget {
   final int productId;
-  const ProductPage({super.key, required this.productId});
+  final int? storeId;
+  const ProductPage({super.key, required this.productId, this.storeId});
   @override
   State<ProductPage> createState() => _ProductPageState();
 }
@@ -10,21 +11,51 @@ class ProductPage extends StatefulWidget {
 class _ProductPageState extends State<ProductPage> {
   int? size;
   Future<List<Json>>? reviewFuture;
+  Future<Json>? branchFuture;
+  int photoIndex = 0;
   @override
   void initState() {
     super.initState();
     reviewFuture = context.read<ShopCubit>().reviews(widget.productId);
+    if (widget.storeId != null) {
+      branchFuture = context.read<ShopCubit>().api
+        .get('/stores/${widget.storeId}/products/${widget.productId}')
+        .then((value) => Map<String, dynamic>.from(value as Map));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.storeId == null) return _buildDetail(context, null);
+    return FutureBuilder<Json>(
+      future: branchFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Scaffold(appBar: AppBar(),
+          body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Could not load size availability'),
+            Text('${snapshot.error}'),
+            FilledButton(onPressed: () => setState(() {
+              branchFuture = context.read<ShopCubit>().api.get(
+                  '/stores/${widget.storeId}/products/${widget.productId}')
+                  .then((v) => Map<String, dynamic>.from(v as Map));
+            }), child: const Text('Retry')),
+          ])));
+        if (!snapshot.hasData) return const Scaffold(
+          body: Center(child: CircularProgressIndicator()));
+        return _buildDetail(context, snapshot.data);
+      },
+    );
+  }
+
+  Widget _buildDetail(BuildContext context, Json? branch) {
     final cubit = context.watch<ShopCubit>();
-    final product = cubit.product(widget.productId);
+    final product = branch ?? cubit.product(widget.productId);
     if (product == null) return const Scaffold(body: Center(child: Text('Product not found')));
     final sizes = Map<String, dynamic>.from(product['sizes'] as Map);
     final inStock = sizes.entries.where((e) => (e.value as int) > 0)
         .map((e) => int.parse(e.key)).toList()..sort();
-    final selectedSize = inStock.contains(size) ? size : (inStock.isEmpty ? null : inStock.first);
+    final selectedSize = size ?? (inStock.isEmpty ? null : inStock.first);
+    final available = selectedSize != null && (sizes['$selectedSize'] as int? ?? 0) > 0;
     final isFavorite = cubit.state.favorites.contains(widget.productId);
     return Scaffold(
       appBar: AppBar(title: const Text('Product details'), actions: [
@@ -34,8 +65,24 @@ class _ProductPageState extends State<ProductPage> {
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 700),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            ClipRRect(borderRadius: BorderRadius.circular(22),
-              child: photo(product['image_url'] as String, height: 290)),
+            SizedBox(height: 290, child: PageView.builder(
+              itemCount: 3,
+              onPageChanged: (value) => setState(() => photoIndex = value),
+              itemBuilder: (context, index) => ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Stack(fit: StackFit.expand, children: [
+                  Transform.scale(
+                    scale: index == 0 ? 1.0 : index == 1 ? 1.16 : 1.34,
+                    child: photo(product['image_url'] as String, height: 290)),
+                  Positioned(bottom: 8, right: 10, child: Chip(
+                    label: Text('${index + 1} / 3'))),
+                ]),
+              ),
+            )),
+            const SizedBox(height: 8),
+            Text('Swipe photos: full view • detail • close-up',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 18),
             Text(product['name'] as String, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
@@ -54,18 +101,38 @@ class _ProductPageState extends State<ProductPage> {
             const SizedBox(height: 12),
             const Text('Choose size', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Wrap(spacing: 8, children: [
-              for (final s in inStock)
-                ChoiceChip(label: Text('$s'), selected: selectedSize == s,
-                  onSelected: (_) => setState(() => size = s)),
+            Wrap(spacing: 8, runSpacing: 5, children: [
+              for (final item in sizes.entries)
+                ChoiceChip(
+                  label: Text('EU ${item.key} (${item.value})'),
+                  selected: selectedSize == int.parse(item.key),
+                  onSelected: (_) => setState(() => size = int.parse(item.key)),
+                ),
             ]),
+            if (selectedSize != null && !available)
+              Padding(padding: const EdgeInsets.only(top: 12), child:
+                OutlinedButton.icon(
+                  onPressed: widget.storeId == null ? null : () async {
+                    await cubit.subscribeBackInStock(widget.storeId!,
+                        widget.productId, selectedSize);
+                  },
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: Text('Notify when EU $selectedSize is back'),
+                )),
             const SizedBox(height: 14),
-            FilledButton.icon(onPressed: selectedSize == null ? null : () {
-              cubit.addToCart(widget.productId, selectedSize);
-              Navigator.pop(context);
-              cubit.selectTab(2);
+            FilledButton.icon(onPressed: !available ? null : () {
+              final added = cubit.addToCart(widget.productId, selectedSize,
+                storeId: widget.storeId);
+              if (added) {
+                Navigator.pop(context);
+                cubit.selectTab(3);
+              }
             }, icon: const Icon(Icons.add_shopping_cart),
-              label: const Text('Add to cart')),
+              label: Text(available ? 'Add to cart' : 'Out of stock')),
+            if (widget.storeId != null)
+              Padding(padding: const EdgeInsets.only(top: 6),
+                child: Text('Branch #${widget.storeId} • Availability and sizes are per store.',
+                  style: Theme.of(context).textTheme.bodySmall)),
             const Divider(height: 36),
             Row(children: [
               const Expanded(child: Text('Customer reviews', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold))),
