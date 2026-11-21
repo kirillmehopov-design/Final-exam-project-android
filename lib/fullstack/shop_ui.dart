@@ -15,6 +15,7 @@ import '../screens/notes_vault_screen.dart';
 part 'screens/app_shell.dart';
 part 'screens/catalog_screen.dart';
 part 'screens/stores_screen.dart';
+part 'screens/store_detail_screen.dart';
 part 'screens/product_screen.dart';
 part 'screens/favorites_screen.dart';
 part 'screens/cart_screen.dart';

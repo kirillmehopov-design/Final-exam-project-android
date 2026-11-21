@@ -32,6 +32,16 @@ class _StoresPageState extends State<StoresPage> {
         (store['longitude'] as num).toDouble()), 13.4);
   }
 
+
+  Future<void> _openBranch(Json store) async {
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: context.read<ShopCubit>(),
+        child: StoreDetailPage(storeId: store['id'] as int),
+      ),
+    ));
+  }
+
   Future<void> _directions(Json store) async {
     final lat = store['latitude'];
     final lng = store['longitude'];
@@ -141,9 +151,24 @@ class _StoresPageState extends State<StoresPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(store['name'] as String,
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Row(children: [
+                            Expanded(child: Text(store['name'] as String,
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold))),
+                            IconButton(icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                              tooltip: 'Explore store', onPressed: () => _openBranch(store)),
+                          ]),
+                          if ((store['photos'] as List?)?.isNotEmpty == true)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(9),
+                              child: Image.network((store['photos'] as List).first as String,
+                                height: 64, width: double.infinity, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox(
+                                  height: 64, child: Icon(Icons.storefront))),
+                            ),
+                          const SizedBox(height: 3),
+                          Text('${store['available_models'] ?? 0} models with stock',
+                            style: Theme.of(context).textTheme.bodySmall),
                           Text('${store['district']} • ${store['address_hint']}',
                             maxLines: 2, overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall),
@@ -153,6 +178,11 @@ class _StoresPageState extends State<StoresPage> {
                             const SizedBox(width: 4),
                             Expanded(child: Text('Demo hours: ${store['hours']}',
                               style: Theme.of(context).textTheme.bodySmall)),
+                            IconButton(
+                              tooltip: 'Shop this store',
+                              onPressed: () => _openBranch(store),
+                              icon: const Icon(Icons.shopping_bag_outlined),
+                            ),
                             IconButton(
                               tooltip: 'Open directions',
                               onPressed: () => _directions(store),
