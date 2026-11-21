@@ -21,6 +21,20 @@ class ProfilePage extends StatelessWidget {
       Card(child: ListTile(leading: const Icon(Icons.workspace_premium_outlined),
         title: const Text('Loyalty points'), trailing: Text('${user['points'] ?? 0}'))),
       const SizedBox(height: 8),
+      if (user['role'] == 'customer')
+        Card(child: ListTile(
+          leading: const Icon(Icons.swap_horiz),
+          title: const Text('My sneaker transfers'),
+          subtitle: const Text('Follow requests between SneakerHub stores'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push<void>(context, MaterialPageRoute(
+            builder: (_) => BlocProvider.value(
+              value: context.read<ShopCubit>(),
+              child: const TransferRequestsPage(),
+            ),
+          )),
+        )),
+      const SizedBox(height: 8),
       Card(child: ListTile(
         leading: const Icon(Icons.note_alt_outlined),
         title: const Text('Offline notes and settings (Lab 11)'),

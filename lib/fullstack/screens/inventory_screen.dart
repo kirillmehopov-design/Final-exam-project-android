@@ -18,6 +18,15 @@ class InventoryPage extends StatelessWidget {
             const Text('Warehouse / Supplies',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             OutlinedButton.icon(
+              onPressed: () => Navigator.push<void>(context,
+                MaterialPageRoute(builder: (_) => BlocProvider.value(
+                  value: context.read<ShopCubit>(),
+                  child: const TransferRequestsPage(),
+                ))),
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('Store transfer requests'),
+            ),
+            OutlinedButton.icon(
               onPressed: () => _history(context),
               icon: const Icon(Icons.history),
               label: const Text('Supply history'),
