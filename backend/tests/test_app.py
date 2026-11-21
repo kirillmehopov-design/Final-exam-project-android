@@ -125,3 +125,82 @@ def test_almaty_stores_persist_and_cover_all_districts(context):
     assert client.get('/stores/999').status_code == 404
     module.init_db()
     assert len(client.get('/stores').json()) == 10
+
+
+def test_store_profiles_unique_inventory_and_restock_notifications(context):
+    client, login, module = context
+    customer = login('customer@demo.test')
+    admin = login('admin@demo.test')
+    stores = client.get('/stores').json()
+    assert len(stores) == 10
+    assert all(len(store['photos']) == 3 for store in stores)
+    assert all(store['description'] and store['is_demo'] for store in stores)
+    assert len(set(store['name'] for store in stores)) == 10
+    catalog_1 = client.get('/stores/1/products').json()
+    catalog_2 = client.get('/stores/2/products').json()
+    assert len(catalog_1) == len(catalog_2) == 12
+    assert [p['id'] for p in catalog_1] == [p['id'] for p in catalog_2]
+    assert any(p1['sizes'] != p2['sizes'] for p1,p2 in zip(catalog_1, catalog_2))
+    product = catalog_1[0]
+    unavailable = [int(sz) for sz,n in product['sizes'].items() if n == 0]
+    assert unavailable
+    size = unavailable[0]
+    result = client.post('/stores/1/restock-alerts', headers=customer,
+                         json={'product_id': product['id'], 'size':size})
+    assert result.status_code == 200, result.text
+    assert len(client.get('/restock-alerts', headers=customer).json()) == 1
+    assert client.post('/stores/1/restock-alerts', headers=admin,
+                       json={'product_id':product['id'],'size':size}).status_code == 403
+    supply = client.post('/admin/store-supplies', headers=admin, json={
+        'store_id':1, 'product_id':product['id'],'size':size,'quantity':3})
+    assert supply.status_code == 201, supply.text
+    assert supply.json()['alerts_sent'] == 1
+    assert client.get(f"/stores/1/products/{product['id']}").json()['sizes'][str(size)] == 3
+    assert client.get('/restock-alerts', headers=customer).json() == []
+    assert any(n['title']=='Size back in stock!'
+               for n in client.get('/notifications',headers=customer).json())
+    assert client.get(f"/stores/2/products/{product['id']}").json()['sizes'][str(size)] == catalog_2[0]['sizes'][str(size)]
+    module.init_db()  # Reinitializing must not wipe branch-specific supplies.
+    assert client.get(f"/stores/1/products/{product['id']}").json()['sizes'][str(size)] == 3
+
+
+def test_branch_pickup_code_and_delivery_source_stock(context):
+    client, login, _ = context
+    customer = login('customer@demo.test')
+    admin = login('admin@demo.test')
+    branch = client.get('/stores/3/products').json()[0]
+    size = next(int(k) for k,v in branch['sizes'].items() if v > 0)
+    before = branch['sizes'][str(size)]
+    missing = client.post('/orders',headers=customer,json={
+        'store_id': 999,'fulfillment':'pickup',
+        'items':[{'product_id':1,'size':size,'quantity':1}],
+        'address':'Demo pickup contact test'})
+    assert missing.status_code == 404
+    order = client.post('/orders', headers=customer, json={
+        'store_id':3,'fulfillment':'pickup',
+        'items':[{'product_id':1,'size':size,'quantity':1}],
+        'address':'Customer will collect in person'})
+    assert order.status_code == 201, order.text
+    oid = order.json()['id']
+    assert order.json()['store_id'] == 3
+    assert order.json()['fulfillment'] == 'pickup'
+    assert order.json()['store_name'] == 'SneakerHub DISTRICT'
+    current = client.get('/stores/3/products/1').json()
+    assert current['sizes'][str(size)] == before - 1
+    assert client.patch(f'/admin/orders/{oid}', headers=admin,
+        json={'status':'preparing'}).status_code == 200
+    assert client.patch(f'/admin/orders/{oid}', headers=admin,
+        json={'status':'out_for_delivery','courier_id':3}).status_code == 409
+    assert client.patch(f'/admin/orders/{oid}', headers=admin,
+        json={'status':'ready_for_pickup'}).status_code == 200
+    code_response = client.get(f'/orders/{oid}/delivery-code', headers=customer)
+    assert code_response.status_code == 200
+    code = code_response.json()['code']
+    assert client.post(f'/admin/orders/{oid}/pickup', headers=customer,
+        json={'code':code}).status_code == 403
+    assert client.post(f'/admin/orders/{oid}/pickup', headers=admin,
+        json={'code':'000000' if code!='000000' else '111111'}).status_code == 400
+    confirmed = client.post(f'/admin/orders/{oid}/pickup', headers=admin,
+        json={'code':code})
+    assert confirmed.status_code == 200, confirmed.text
+    assert client.get(f'/orders/{oid}', headers=customer).json()['status'] == 'delivered'
