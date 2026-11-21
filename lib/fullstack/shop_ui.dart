@@ -31,10 +31,6 @@ String money(int cents) {
     RegExp(r'\B(?=(\d{3})+(?!\d))'),
     (_) => ' ',
   );
-  return '
-int amount(Json p) => p['sale_price_cents'] as int;
-
- + groups + ' ₸';
+  return groups + ' ₸';
 }
 int amount(Json p) => p['sale_price_cents'] as int;
-
