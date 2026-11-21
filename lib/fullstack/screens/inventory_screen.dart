@@ -36,7 +36,9 @@ class InventoryPage extends StatelessWidget {
           Text('Discount: ${p['discount']}%'),
           Wrap(spacing: 8, children: [
             OutlinedButton.icon(icon: const Icon(Icons.add_box_outlined),
-              label: const Text('Receive supply'), onPressed: () => _supply(context, p)),
+              label: const Text('Warehouse restock'), onPressed: () => _supply(context, p)),
+            OutlinedButton.icon(icon: const Icon(Icons.store_outlined),
+              label: const Text('Restock a branch'), onPressed: () => _branchSupply(context, p)),
             OutlinedButton.icon(icon: const Icon(Icons.local_offer_outlined),
               label: const Text('Set discount'), onPressed: () => _discount(context, p)),
           ]),
@@ -84,6 +86,73 @@ class InventoryPage extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not load shipments: $error')),
       );
+    }
+  }
+
+  Future<void> _branchSupply(BuildContext context, Json product) async {
+    final api = context.read<ShopCubit>().api;
+    List<Json> branches;
+    try {
+      branches = asJsonList(await api.get('/stores'));
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      }
+      return;
+    }
+    if (!context.mounted || branches.isEmpty) return;
+    int branchId = branches.first['id'] as int;
+    int size = 42;
+    final field = TextEditingController(text: '5');
+    final result = await showDialog<(int,int,int)>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialog, change) => AlertDialog(
+          title: Text('Restock ${product['name']}'),
+          content: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: branchId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Branch'),
+                items: [
+                  for (final branch in branches)
+                    DropdownMenuItem(value: branch['id'] as int,
+                      child: Text(branch['name'] as String)),
+                ],
+                onChanged: (v) => change(() => branchId = v ?? branchId),
+              ),
+              DropdownButtonFormField<int>(
+                initialValue: size,
+                decoration: const InputDecoration(labelText: 'EU size'),
+                items: [for (var n = 39; n <= 45; n++)
+                  DropdownMenuItem(value: n, child: Text('EU $n'))],
+                onChanged: (v) => change(() => size = v ?? size),
+              ),
+              TextField(controller: field, keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Quantity to receive')),
+              const SizedBox(height: 8),
+              const Text('Restocking a sold-out size sends in-app alerts to subscribers.',
+                style: TextStyle(fontSize: 12)),
+            ],
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog),
+              child: const Text('Cancel')),
+            FilledButton(onPressed: () {
+              final quantity = int.tryParse(field.text);
+              if (quantity == null || quantity <= 0) return;
+              Navigator.pop(dialog, (branchId, size, quantity));
+            }, child: const Text('Receive at branch')),
+          ],
+        ),
+      ),
+    );
+    field.dispose();
+    if (result != null && context.mounted) {
+      await context.read<ShopCubit>().restockBranch(
+          result.$1, product['id'] as int, result.$2, result.$3);
     }
   }
 
