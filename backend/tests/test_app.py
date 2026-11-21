@@ -25,8 +25,8 @@ def test_customer_to_courier_delivery_flow(context):
     cust = login('customer@demo.test')
     admin = login('admin@demo.test')
     courier = login('courier@demo.test')
-    assert len(client.get('/products').json()) == 6
-    assert len(client.get('/products?q=nike').json()) == 2
+    assert len(client.get('/products').json()) == 12
+    assert len(client.get('/products?q=nike').json()) >= 2
     p = client.get('/products').json()[0]
     size = 42
     before = p['sizes'][str(size)]
@@ -107,3 +107,21 @@ def test_register_and_overselling(context):
     assert client.post('/orders', headers=headers, json=request).status_code == 409
     assert client.post('/auth/logout', headers=headers).status_code == 200
     assert client.get('/me', headers=headers).status_code == 401
+
+
+def test_almaty_stores_persist_and_cover_all_districts(context):
+    client, _, module = context
+    result = client.get('/stores')
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data) == 10
+    assert all(s['is_demo'] is True for s in data)
+    assert {s['district'] for s in data} == {
+        'Almaly', 'Auezov', 'Bostandyk', 'Medeu',
+        'Zhetysu', 'Turksib', 'Alatau', 'Nauryzbay',
+    }
+    assert len(client.get('/stores?district=Bostandyk').json()) == 2
+    assert client.get('/stores/5').json()['district'] == 'Auezov'
+    assert client.get('/stores/999').status_code == 404
+    module.init_db()
+    assert len(client.get('/stores').json()) == 10

@@ -23,26 +23,60 @@ OTP_SECRET = os.environ.get('SNEAKERHUB_OTP_SECRET') or secrets.token_hex(32)
 DEMO_PASS = 'DemoPass123!'
 
 PRODUCTS = [
-    (1, 'Air Jordan 1 High', 'Jordan', 'Lifestyle', 18999, 0,
+    (1, 'Air Jordan 1 High', 'Jordan', 'Lifestyle', 8999000, 0,
      'Classic high-top basketball style with comfortable cushioning.',
      'https://images.unsplash.com/photo-1556906781-9a412961c28c?auto=format&fit=crop&w=900&q=80'),
-    (2, 'Nike Air Max', 'Nike', 'Running', 15999, 15,
+    (2, 'Nike Air Max', 'Nike', 'Running', 7499000, 15,
      'Everyday sneakers with lightweight support and visible Air cushioning.',
      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80'),
-    (3, 'Adidas Ultraboost', 'Adidas', 'Running', 17999, 0,
+    (3, 'Adidas Ultraboost', 'Adidas', 'Running', 9499000, 0,
      'Responsive running shoes with a flexible upper.',
      'https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=900&q=80'),
-    (4, 'New Balance 550', 'New Balance', 'Lifestyle', 13999, 0,
+    (4, 'New Balance 550', 'New Balance', 'Lifestyle', 6999000, 0,
      'Retro court-inspired sneakers for everyday outfits.',
      'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=900&q=80'),
-    (5, 'Nike Dunk Low', 'Nike', 'Streetwear', 12999, 10,
+    (5, 'Nike Dunk Low', 'Nike', 'Streetwear', 6499000, 10,
      'Low-profile classic sneakers with a durable upper.',
      'https://images.unsplash.com/photo-1600269452121-4f2416e55c28?auto=format&fit=crop&w=900&q=80'),
-    (6, 'Adidas Forum Low', 'Adidas', 'Lifestyle', 11999, 0,
+    (6, 'Adidas Forum Low', 'Adidas', 'Lifestyle', 5899000, 0,
      'Low-top basketball inspired vintage shoes.',
      'https://images.unsplash.com/photo-1518002171953-a080ee817e1f?auto=format&fit=crop&w=900&q=80'),
+    (7, 'Nike Air Force 1', 'Nike', 'Lifestyle', 6799000, 5,
+     'Premium everyday low-top sneaker with a classic profile.',
+     'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=900&q=80'),
+    (8, 'Adidas Campus 00s', 'Adidas', 'Streetwear', 6299000, 0,
+     'Chunky retro streetwear silhouette with soft lining.',
+     'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=900&q=80'),
+    (9, 'New Balance 530', 'New Balance', 'Running', 7299000, 0,
+     'Breathable retro-running sneaker for daily wear.',
+     'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=900&q=80'),
+    (10, 'Puma Palermo', 'Puma', 'Lifestyle', 5599000, 20,
+     'Minimal low-profile suede-inspired court style.',
+     'https://images.unsplash.com/photo-1520256862855-398228c41684?auto=format&fit=crop&w=900&q=80'),
+    (11, 'ASICS GEL-Kayano', 'ASICS', 'Running', 10999000, 0,
+     'Performance running sneaker with high-cushion support.',
+     'https://images.unsplash.com/photo-1605348532760-6753d2c43329?auto=format&fit=crop&w=900&q=80'),
+    (12, 'Converse Chuck 70', 'Converse', 'Lifestyle', 4299000, 0,
+     'Timeless canvas high-top with vintage detailing.',
+     'https://images.unsplash.com/photo-1494496195158-c3becb4f2475?auto=format&fit=crop&w=900&q=80'),
 ]
 
+
+
+# FICTIONAL demonstration branches. Coordinates and hours are illustrative,
+# NOT claims that real SneakerHub shops operate at these addresses.
+STORES = [
+    (1, 'SneakerHub Downtown', 'Almaly', 'Central Almaty / Arbat area', 43.2590, 76.9400, '10:00-21:00'),
+    (2, 'SneakerHub Abay', 'Almaly', 'Abay Avenue / Auezov area', 43.2440, 76.9250, '10:00-21:00'),
+    (3, 'SneakerHub Mega', 'Bostandyk', 'Rozybakiev Street / MEGA vicinity', 43.2030, 76.8930, '10:00-22:00'),
+    (4, 'SneakerHub Esentai', 'Bostandyk', 'Al-Farabi Avenue / Esentai vicinity', 43.2180, 76.9280, '10:00-22:00'),
+    (5, 'SneakerHub West', 'Auezov', 'Auezov district / Saina area', 43.2330, 76.8640, '10:00-21:00'),
+    (6, 'SneakerHub East', 'Medeu', 'Medeu district / Dostyk area', 43.2320, 76.9630, '10:00-21:00'),
+    (7, 'SneakerHub Zhetysu', 'Zhetysu', 'Zhetysu district / Raiymbek area', 43.2860, 76.9160, '10:00-20:00'),
+    (8, 'SneakerHub Airport', 'Turksib', 'Turksib district / Airport area', 43.3410, 77.0110, '10:00-20:00'),
+    (9, 'SneakerHub Alatau', 'Alatau', 'Alatau district / Nurkent area', 43.2750, 76.8130, '10:00-20:00'),
+    (10, 'SneakerHub Nauryzbay', 'Nauryzbay', 'Nauryzbay district / Kalkaman area', 43.2180, 76.8260, '10:00-20:00'),
+]
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -86,6 +120,13 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with db() as conn:
         conn.executescript('''
+        CREATE TABLE IF NOT EXISTS stores (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL, district TEXT NOT NULL,
+            address_hint TEXT NOT NULL,
+            latitude REAL NOT NULL, longitude REAL NOT NULL,
+            hours TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'customer',
@@ -148,6 +189,10 @@ def init_db() -> None:
             UNIQUE(user_id, product_id)
         );
         ''')
+        for store in STORES:
+            conn.execute('INSERT OR IGNORE INTO stores '
+                         '(id,name,district,address_hint,latitude,longitude,hours) '
+                         'VALUES (?,?,?,?,?,?,?)', store)
         for email, role in [
             ('customer@demo.test', 'customer'),
             ('courier@demo.test', 'courier'),
@@ -271,6 +316,27 @@ def visible_order(conn: sqlite3.Connection, order_id: int, user: dict) -> sqlite
     if user['role'] != 'admin' and (row['user_id'] if user['role'] == 'customer' else row['courier_id']) != user['id']:
         raise HTTPException(403, 'Not your order')
     return row
+
+
+@app.get('/stores')
+def store_locations(district: str = ''):
+    """Ten fictional SneakerHub locations, for educational demonstration."""
+    with db() as conn:
+        if district.strip():
+            rows = conn.execute('SELECT * FROM stores WHERE lower(district)=lower(?) ORDER BY id',
+                                (district.strip(),)).fetchall()
+        else:
+            rows = conn.execute('SELECT * FROM stores ORDER BY id').fetchall()
+    return [{**dict(row), 'is_demo': True} for row in rows]
+
+
+@app.get('/stores/{store_id}')
+def store_detail(store_id: int):
+    with db() as conn:
+        row = conn.execute('SELECT * FROM stores WHERE id=?', (store_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, 'Store not found')
+    return {**dict(row), 'is_demo': True}
 
 
 @app.get('/health')
