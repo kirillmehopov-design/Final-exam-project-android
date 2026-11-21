@@ -13,6 +13,12 @@ class CartPage extends StatelessWidget {
     });
     if (cart.isEmpty) return const Center(child: Text('Your cart is empty'));
     return Column(children: [
+      if (cubit.state.storeId != null)
+        Card(child: ListTile(
+          leading: const Icon(Icons.storefront_outlined),
+          title: Text('Store #${cubit.state.storeId} • branch stock'),
+          subtitle: const Text('Pickup or delivery to your address'),
+        )),
       Expanded(child: ListView.builder(
         padding: const EdgeInsets.all(12), itemCount: cart.length,
         itemBuilder: (context, index) {
@@ -46,24 +52,40 @@ class CartPage extends StatelessWidget {
     final address = TextEditingController(text: '123 Demo Street, Almaty');
     final promo = TextEditingController();
     var usePoints = false;
-    final order = await showDialog<(String, String, bool)>(context: context,
+    var fulfillment = 'delivery';
+    final order = await showDialog<(String, String, bool, String)>(context: context,
       builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: const Text('Confirm demo order'),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('No real payment will be collected.'),
-          TextField(controller: address, decoration: const InputDecoration(labelText: 'Delivery address')),
+          if (context.read<ShopCubit>().state.storeId != null) ...[
+            RadioListTile<String>(
+              title: const Text('Home delivery'),
+              value: 'delivery', groupValue: fulfillment,
+              onChanged: (v) => setDialogState(() => fulfillment = v ?? 'delivery')),
+            RadioListTile<String>(
+              title: const Text('Pick up from branch'),
+              value: 'pickup', groupValue: fulfillment,
+              onChanged: (v) => setDialogState(() => fulfillment = v ?? 'pickup')),
+          ],
+          TextField(controller: address,
+            decoration: InputDecoration(
+              labelText: fulfillment == 'delivery' ? 'Delivery address'
+                  : 'Pickup contact / note (demo)',
+            )),
           TextField(controller: promo, decoration: const InputDecoration(labelText: 'Promo code (WELCOME10)')),
           CheckboxListTile(value: usePoints, title: const Text('Use loyalty points'),
             onChanged: (v) => setDialogState(() => usePoints = v ?? false)),
         ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, (address.text, promo.text, usePoints)),
+          FilledButton(onPressed: () => Navigator.pop(context, (address.text, promo.text, usePoints, fulfillment)),
             child: const Text('Place order')),
         ],
       )));
     if (order != null && context.mounted) {
-      await context.read<ShopCubit>().checkout(order.$1, order.$2, order.$3);
+      await context.read<ShopCubit>().checkout(order.$1, order.$2, order.$3,
+        fulfillment: order.$4);
     }
   }
 }
