@@ -125,8 +125,8 @@ class Dashboard extends StatelessWidget {
         ? <Widget>[const InventoryPage(), const OrdersPage(), const StatsPage(), const ProfilePage()]
         : isCourier
             ? <Widget>[const OrdersPage(), const ProfilePage()]
-            : <Widget>[const CatalogPage(), const FavoritesPage(), const CartPage(),
-                const OrdersPage(), const ProfilePage()];
+            : <Widget>[const CatalogPage(), const FavoritesPage(), const StoresPage(),
+                const CartPage(), const OrdersPage(), const ProfilePage()];
     final tabs = isAdmin
         ? const [
             BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), label: 'Stock'),
@@ -149,6 +149,7 @@ class Dashboard extends StatelessWidget {
                   ),
                   label: 'Saved',
                 ),
+                const BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Stores'),
                 BottomNavigationBarItem(
                   icon: Badge(
                     isLabelVisible: state.cart.isNotEmpty,
@@ -175,8 +176,8 @@ class Dashboard extends StatelessWidget {
       body: IndexedStack(index: selected, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        selectedFontSize: 11,
-        unselectedFontSize: 10,
+        selectedFontSize: 10,
+        unselectedFontSize: 9,
         currentIndex: selected,
         onTap: context.read<ShopCubit>().selectTab,
         items: tabs,

@@ -20,6 +20,35 @@ class ProfilePage extends StatelessWidget {
       ),
       Card(child: ListTile(leading: const Icon(Icons.workspace_premium_outlined),
         title: const Text('Loyalty points'), trailing: Text('${user['points'] ?? 0}'))),
+      const SizedBox(height: 8),
+      Card(child: ListTile(
+        leading: const Icon(Icons.note_alt_outlined),
+        title: const Text('Offline notes and settings (Lab 11)'),
+        subtitle: const Text('Saved on this device, available without internet'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) =>
+              ChangeNotifierProvider<NotesVaultProvider>.value(
+                value: context.read<NotesVaultProvider>(),
+                child: Consumer<NotesVaultProvider>(
+                  builder: (ctx, vault, __) => Theme(
+                    data: vault.isDarkMode
+                        ? ThemeData.dark(useMaterial3: true)
+                        : ThemeData.light(useMaterial3: true),
+                    child: const NotesVaultScreen(),
+                  ),
+                ),
+              ),
+            ),
+          );
+          if (context.mounted) {
+            await context.read<ThemeCubit>().setDarkMode(
+              context.read<NotesVaultProvider>().isDarkMode,
+            );
+          }
+        },
+      )),
       const SizedBox(height: 20),
       Text('In-app notifications (${cubit.state.notifications.where((n) => n['is_read'] == 0).length} unread)',
         style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),

@@ -242,7 +242,7 @@ class ShopCubit extends Cubit<ShopState> {
             'quantity': line.quantity,
           }).toList(),
         });
-        emit(state.copyWith(cart: [], tab: 3));
+        emit(state.copyWith(cart: [], tab: 4));
         await localStore.saveCart([]);
         await _refreshAll();
       }, success: 'Order placed!');
