@@ -28,7 +28,16 @@ class OrdersPage extends StatelessWidget {
             const SizedBox(height: 6),
             for (final item in items) Text('${item['name']} • EU ${item['size']} × ${item['quantity']}'),
             const SizedBox(height: 8),
-            Text(money(order['total_cents'] as int),
+            if ((order['fulfillment'] as String?) == 'delivery' &&
+                order['delivery_district'] != null) ...[
+              Text('Delivery to ${order['delivery_district']} • ${money(order['delivery_fee_cents'] as int)}',
+                style: Theme.of(context).textTheme.bodySmall),
+              Text('Estimated ${order['eta_min_days']}–${order['eta_max_days']} days (demo)',
+                style: Theme.of(context).textTheme.bodySmall),
+            ],
+            if ((order['fulfillment'] as String?) == 'pickup')
+              const Text('Pickup is free • Collection code appears when ready.'),
+            Text('Order total: ${money(order['total_cents'] as int)}',
               style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             if (role == 'customer' && (status == 'arrived' || status == 'ready_for_pickup'))
