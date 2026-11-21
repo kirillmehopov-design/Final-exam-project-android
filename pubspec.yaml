@@ -1,5 +1,5 @@
 name: lab10_from_lab9
-description: Lab 9+10 Cloud Store with LW11 offline notes and settings persistence.
+description: SneakerHub Almaty final, Flutter BLoC, REST, SQLite and Lab 11 vault.
 publish_to: 'none'
 version: 1.1.0+2
 
@@ -11,7 +11,11 @@ dependencies:
     sdk: flutter
   provider: ^6.1.5+1
   http: ^1.2.0
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.3.2
+  flutter_bloc: ^9.1.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
