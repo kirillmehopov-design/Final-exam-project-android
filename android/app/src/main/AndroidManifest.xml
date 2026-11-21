@@ -2,7 +2,7 @@
     <!-- Required for Fake Store API HTTP GET and product images in release builds. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="Cloud Product Explorer"
+        android:label="SneakerHub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

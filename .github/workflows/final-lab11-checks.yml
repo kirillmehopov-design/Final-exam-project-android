@@ -1,0 +1,24 @@
+name: Final from Lab 11 - Flutter checks
+on:
+  push:
+    branches: [feature/final-from-lab11]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate platform scaffolding
+        run: flutter create --platforms=android,web .
+      - name: Install packages
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+      - name: Run tests
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release
