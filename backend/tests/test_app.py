@@ -204,3 +204,101 @@ def test_branch_pickup_code_and_delivery_source_stock(context):
         json={'code':code})
     assert confirmed.status_code == 200, confirmed.text
     assert client.get(f'/orders/{oid}', headers=customer).json()['status'] == 'delivered'
+
+
+def test_delivery_quote_by_almaty_district_and_secure_checkout(context):
+    client, login, module = context
+    customer = login('customer@demo.test')
+    assert client.get('/delivery/estimate?district=unknown').status_code == 422
+    assert client.get('/delivery/estimate?district=Almaly&store_id=999').status_code == 404
+    local = client.get('/delivery/estimate?district=Almaly&store_id=1')
+    assert local.status_code == 200, local.text
+    assert local.json()['fee_cents'] == 110000
+    assert local.json()['eta_min_days'] == 1
+    remote = client.get('/delivery/estimate?district=Nauryzbay&store_id=1')
+    assert remote.status_code == 200
+    assert remote.json()['fee_cents'] == 280000
+    assert remote.json()['eta_min_days'] == 2
+    assert remote.json()['eta_max_days'] == 3
+    store = client.get('/stores/1/products').json()
+    p = store[0]
+    sz = next(int(k) for k,v in p['sizes'].items() if v>0)
+    assert client.post('/orders',headers=customer,json={
+        'store_id':1,'fulfillment':'delivery',
+        'items':[{'product_id':p['id'],'size':sz,'quantity':1}],
+        'address':'Almaty test address for delivery'}).status_code == 422
+    ordered = client.post('/orders',headers=customer,json={
+        'store_id':1,'fulfillment':'delivery','delivery_district':'Almaly',
+        'items':[{'product_id':p['id'],'size':sz,'quantity':1}],
+        'address':'Almaty test address for delivery'})
+    assert ordered.status_code == 201,ordered.text
+    data = ordered.json()
+    assert data['delivery_fee_cents'] == local.json()['fee_cents']
+    assert data['eta_min_days'] == 1
+    assert data['total_cents'] == p['sale_price_cents'] + local.json()['fee_cents']
+    assert data['delivery_district'] == 'Almaly'
+    assert client.get('/orders',headers=customer).json()[0]['delivery_fee_cents'] == 110000
+
+
+def test_transfer_request_approve_arrive_and_cancel_no_overselling(context):
+    client, login, module = context
+    customer, admin, courier = [login(email) for email in (
+        'customer@demo.test', 'admin@demo.test', 'courier@demo.test')]
+    product = client.get('/stores/1/products').json()[0]
+    size = next(int(k) for k,q in product['sizes'].items() if q==0)
+    sources = client.get(f"/products/{product['id']}/availability?size={size}").json()
+    assert sources
+    source = sources[0]
+    source_id = source['store_id']
+    before = source['quantity']
+    destination_before = client.get('/stores/1/products/1').json()['sizes'][str(size)]
+    assert destination_before == 0
+    payload = dict(source_store_id=source_id,destination_store_id=1,
+                   product_id=1,size=size,quantity=1)
+    assert client.post('/transfers',json=payload).status_code == 401
+    assert client.post('/transfers',headers=courier,json=payload).status_code == 403
+    requested = client.post('/transfers',headers=customer,json=payload)
+    assert requested.status_code == 201,requested.text
+    transfer_id = requested.json()['id']
+    assert requested.json()['status'] == 'requested'
+    assert client.post('/transfers',headers=customer,json=payload).status_code == 409
+    assert len(client.get('/transfers',headers=customer).json()) == 1
+    assert len(client.get('/transfers',headers=admin).json()) == 1
+    assert client.get('/transfers',headers=courier).status_code == 403
+    assert client.patch(f'/admin/transfers/{transfer_id}',headers=customer,
+        json={'status':'approved'}).status_code == 403
+    assert client.patch(f'/admin/transfers/{transfer_id}',headers=admin,
+        json={'status':'completed'}).status_code == 409
+    approved = client.patch(f'/admin/transfers/{transfer_id}',headers=admin,
+        json={'status':'approved'})
+    assert approved.status_code == 200,approved.text
+    assert client.get(f"/stores/{source_id}/products/1").json()['sizes'][str(size)] == before-1
+    assert client.patch(f'/admin/transfers/{transfer_id}',headers=admin,
+        json={'status':'approved'}).status_code == 409
+    arrived = client.patch(f'/admin/transfers/{transfer_id}',headers=admin,
+        json={'status':'completed'})
+    assert arrived.status_code == 200,arrived.text
+    assert client.get('/stores/1/products/1').json()['sizes'][str(size)] == 1
+    assert client.patch(f'/admin/transfers/{transfer_id}',headers=admin,
+        json={'status':'cancelled'}).status_code == 409
+    assert any(n['title']=='Sneaker transfer update'
+               for n in client.get('/notifications',headers=customer).json())
+
+    # Approved transfer cancellation restores stock to its source branch.
+    target_product = client.get('/stores/2/products').json()[0]
+    absent = next(int(k) for k,n in target_product['sizes'].items() if n==0)
+    others = client.get('/products/1/availability?size='+str(absent)).json()
+    other = next(x for x in others if x['store_id'] != 2)
+    payload2 = dict(source_store_id=other['store_id'],destination_store_id=2,
+                    product_id=1,size=absent,quantity=1)
+    response = client.post('/transfers',headers=customer,json=payload2)
+    assert response.status_code == 201,response.text
+    transfer2 = response.json()['id']
+    previous = client.get(f"/stores/{other['store_id']}/products/1").json()['sizes'][str(absent)]
+    assert client.patch(f'/admin/transfers/{transfer2}',headers=admin,
+        json={'status':'approved'}).status_code == 200
+    assert client.patch(f'/admin/transfers/{transfer2}',headers=admin,
+        json={'status':'cancelled'}).status_code == 200
+    assert client.get(f"/stores/{other['store_id']}/products/1").json()['sizes'][str(absent)] == previous
+    module.init_db()  # migration and seeding must not overwrite transfer results
+    assert client.get('/stores/1/products/1').json()['sizes'][str(size)] == 1
