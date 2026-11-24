@@ -17,6 +17,12 @@ jobs:
         run: flutter create --platforms=android,web .
       - name: Install packages
         run: flutter pub get
+      - name: Generate original SneakerHub icon and splash assets
+        run: python tooling/create_brand_icon.py
+      - name: Generate platform app icons
+        run: dart run flutter_launcher_icons
+      - name: Generate native and web splash screens
+        run: dart run flutter_native_splash:create
       - name: Analyze
         run: flutter analyze --no-fatal-infos
       - name: Run tests

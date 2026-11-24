@@ -22,6 +22,31 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
 
 flutter:
   uses-material-design: true
+
+# Generated icon and splash assets (tooling/create_brand_icon.py).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/brand/sneakerhub_icon.png
+  adaptive_icon_background: "#D4F45B"
+  adaptive_icon_foreground: assets/brand/sneakerhub_icon.png
+  web:
+    generate: true
+    image_path: assets/brand/sneakerhub_icon.png
+    background_color: "#141414"
+    theme_color: "#D4F45B"
+
+flutter_native_splash:
+  color: "#141414"
+  image: assets/brand/sneakerhub_splash.png
+  android: true
+  ios: false
+  web: true
+  android_12:
+    color: "#141414"
+    image: assets/brand/sneakerhub_splash.png
