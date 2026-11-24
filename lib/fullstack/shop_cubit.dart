@@ -3,6 +3,7 @@ import 'api_client.dart';
 import '../models/api_product.dart';
 import '../models/cart_line.dart';
 import '../providers/local_store.dart';
+import '../providers/secure_session.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -88,8 +89,9 @@ class ShopState {
 class ShopCubit extends Cubit<ShopState> {
   final ApiClient api;
   final LocalStore localStore;
+  final SecureSession? secureSession;
 
-  ShopCubit(this.api, this.localStore)
+  ShopCubit(this.api, this.localStore, {this.secureSession})
       : super(ShopState(
           cart: localStore.cart,
           favorites: localStore.favorites,
@@ -114,6 +116,17 @@ class ShopCubit extends Cubit<ShopState> {
         catalogLoading: false,
         clearCatalogError: true,
       ));
+      // Restore the account after kill/restart when a secure token is valid.
+      // Invalid/expired tokens are cleared without blocking the public catalog.
+      if (api.token != null) {
+        try {
+          await _refreshAll();
+        } catch (_) {
+          api.token = null;
+          await secureSession?.clearToken();
+          emit(state.copyWith(clearUser: true));
+        }
+      }
     } catch (e) {
       emit(state.copyWith(
         catalogLoading: false,
@@ -155,6 +168,7 @@ class ShopCubit extends Cubit<ShopState> {
             register ? '/auth/register' : '/auth/login',
             {'email': email, 'password': password}));
         api.token = result['token'] as String;
+        await secureSession?.saveToken(api.token!);
         emit(state.copyWith(user: Map<String, dynamic>.from(result['user'] as Map), tab: 0));
         await _refreshAll();
       }, success: 'Welcome to SneakerHub!');
@@ -164,6 +178,7 @@ class ShopCubit extends Cubit<ShopState> {
           await api.post('/auth/logout');
         } finally {
           api.token = null;
+          await secureSession?.clearToken();
           await localStore.clearShoppingData();
           emit(ShopState(products: state.products));
         }

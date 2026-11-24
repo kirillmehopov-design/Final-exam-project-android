@@ -7,6 +7,7 @@ import 'fullstack/api_client.dart';
 import 'fullstack/shop_cubit.dart';
 import 'fullstack/shop_ui.dart';
 import 'providers/local_store.dart';
+import 'providers/secure_session.dart';
 import 'providers/notes_vault_provider.dart';
 import 'providers/theme_cubit.dart';
 
@@ -23,6 +24,8 @@ Future<void> main() async {
   final vault = await NotesVaultProvider.load();
   final store = LocalStore(prefs);
   final api = ApiClient();
+  final session = SecureSession();
+  api.token = await session.readToken();
 
   runApp(
     ChangeNotifierProvider<NotesVaultProvider>.value(
@@ -31,7 +34,7 @@ Future<void> main() async {
         providers: [
           BlocProvider<ThemeCubit>(create: (_) => ThemeCubit(store)),
           BlocProvider<ShopCubit>(
-            create: (_) => ShopCubit(api, store)..initialize(),
+            create: (_) => ShopCubit(api, store, secureSession: session)..initialize(),
           ),
         ],
         child: const SneakerHubFullstackApp(),
