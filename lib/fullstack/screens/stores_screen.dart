@@ -116,8 +116,8 @@ class _StoresPageState extends State<StoresPage> {
                           Icons.location_on_rounded,
                           size: store['id'] == _selectedId ? 48 : 40,
                           color: store['id'] == _selectedId
-                              ? const Color(0xFFEF7740)
-                              : const Color(0xFF25345B),
+                              ? const Color(0xFFB9DC3E)
+                              : SneakerDesign.ink,
                         ),
                       ),
                     ),
@@ -132,65 +132,108 @@ class _StoresPageState extends State<StoresPage> {
             padding: const EdgeInsets.all(10),
             scrollDirection: narrow ? Axis.horizontal : Axis.vertical,
             itemCount: visible.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8, height: 8),
+            separatorBuilder: (_, __) =>
+              const SizedBox(width: 10, height: 10),
             itemBuilder: (context, index) {
               final store = visible[index];
               final active = store['id'] == _selectedId;
+              final photos = (store['photos'] as List?) ?? const [];
+              Widget shopButton() => FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: SneakerDesign.ink,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 9)),
+                onPressed: () => _openBranch(store),
+                icon: const Icon(Icons.arrow_outward, size: 16),
+                label: const Text('VIEW STORE',
+                  style: TextStyle(fontSize: 10,
+                    fontWeight: FontWeight.w900)),
+              );
+              Widget photoTile(double height) => ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: photos.isEmpty
+                  ? Container(color: SneakerDesign.imageSurface,
+                    height: height, child:
+                      const Icon(Icons.storefront_outlined))
+                  : Image.network(photos.first as String,
+                    height: height, width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                      Container(height: height,
+                        color: SneakerDesign.imageSurface,
+                        child: const Icon(Icons.storefront_outlined))),
+              );
               return SizedBox(
-                width: narrow ? 275 : null,
+                width: narrow ? 274 : null,
                 child: Card(
-                  color: active
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : null,
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    side: BorderSide(color: active
+                      ? SneakerDesign.ink : SneakerDesign.line,
+                      width: active ? 2 : .8)),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
                     onTap: () => _focus(store),
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(children: [
-                            Expanded(child: Text(store['name'] as String,
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold))),
-                            IconButton(icon: const Icon(Icons.arrow_forward_ios, size: 18),
-                              tooltip: 'Explore store', onPressed: () => _openBranch(store)),
-                          ]),
-                          if ((store['photos'] as List?)?.isNotEmpty == true)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(9),
-                              child: Image.network((store['photos'] as List).first as String,
-                                height: 92, width: double.infinity, fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox(
-                                  height: 92, child: Icon(Icons.storefront))),
-                            ),
-                          const SizedBox(height: 3),
-                          Text('${store['available_models'] ?? 0} models with stock',
-                            style: Theme.of(context).textTheme.bodySmall),
-                          Text('${store['district']} • ${store['address_hint']}',
-                            maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall),
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            const Icon(Icons.schedule, size: 14),
-                            const SizedBox(width: 4),
-                            Expanded(child: Text('Demo hours: ${store['hours']}',
-                              style: Theme.of(context).textTheme.bodySmall)),
-                            IconButton(
-                              tooltip: 'Shop this store',
-                              onPressed: () => _openBranch(store),
-                              icon: const Icon(Icons.shopping_bag_outlined),
-                            ),
-                            IconButton(
-                              tooltip: 'Open directions',
-                              onPressed: () => _directions(store),
-                              icon: const Icon(Icons.directions_outlined),
-                            ),
-                          ]),
-                        ],
-                      ),
+                      padding: const EdgeInsets.all(11),
+                      child: narrow
+                        ? Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(store['name'] as String,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 14)),
+                              const SizedBox(height: 3),
+                              Text(store['district'] as String,
+                                style: const TextStyle(
+                                  color: SneakerDesign.muted, fontSize: 11)),
+                              const SizedBox(height: 8),
+                              Expanded(child: Row(children: [
+                                SizedBox(width: 96, child: photoTile(90)),
+                                const SizedBox(width: 10),
+                                Expanded(child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('${store['available_models']} models in stock',
+                                      maxLines: 2,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11)),
+                                    Text('Open hours: ${store['hours']}',
+                                      maxLines: 2,
+                                      style: const TextStyle(
+                                        color: SneakerDesign.muted,
+                                        fontSize: 10)),
+                                    shopButton(),
+                                  ]),
+                                )),
+                              ])),
+                            ])
+                        : Column(crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              photoTile(120),
+                              const SizedBox(height: 12),
+                              Text(store['name'] as String,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 17)),
+                              const SizedBox(height: 4),
+                              Text('${store['district']} • ${store['address_hint']}',
+                                maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall),
+                              const SizedBox(height: 8),
+                              Text('${store['available_models']} models in stock · ${store['hours']}',
+                                style: Theme.of(context).textTheme.bodySmall),
+                              const SizedBox(height: 9),
+                              Row(children: [
+                                Expanded(child: shopButton()),
+                                IconButton(
+                                  tooltip: 'Open directions',
+                                  onPressed: () => _directions(store),
+                                  icon: const Icon(Icons.directions_outlined)),
+                              ]),
+                            ]),
                     ),
                   ),
                 ),
@@ -198,6 +241,15 @@ class _StoresPageState extends State<StoresPage> {
             },
           );
           final details = Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+              child: Row(children: [
+                Expanded(child: Text('Find your store.',
+                  style: TextStyle(fontWeight: FontWeight.w900,
+                    fontSize: narrow ? 20 : 24, letterSpacing: -1))),
+                const Icon(Icons.map_outlined, size: 21),
+              ]),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
               child: Row(children: [
@@ -237,7 +289,7 @@ class _StoresPageState extends State<StoresPage> {
                     style: TextStyle(fontSize: 11)),
               ]),
             ),
-            if (selected != null)
+            if (!narrow && selected != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -250,14 +302,14 @@ class _StoresPageState extends State<StoresPage> {
             return Column(children: [
               details,
               Expanded(child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(5),
                 child: mapWidget,
               )),
-              SizedBox(height: 235, child: cards),
+              SizedBox(height: 176, child: cards),
             ]);
           }
           return Row(children: [
-            SizedBox(width: 330, child: Column(children: [
+            SizedBox(width: 340, child: Column(children: [
               details, Expanded(child: cards),
             ])),
             Expanded(child: Padding(
