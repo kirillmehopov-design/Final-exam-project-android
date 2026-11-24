@@ -27,6 +27,30 @@ This is a **demonstration prototype**, not an actual retailer. **All 10 Almaty b
 
 **Important limitations:** No real payment processing, SMS, background push notifications, GPS courier proximity, verified store addresses/hours, per-branch inventory or live delivery routes. Courier arrival is manual; customer notifications are **in-app**, not mobile OS pushes. Photos are illustrative public third-party images, not exact product SKU listings. The demo server uses permissive CORS and simple local demo auth, **not** production security settings.
 
+## Frontend redesign — Nike / END.-inspired, original SneakerHub styling
+
+The Flutter web/mobile experience uses an original retail visual system, rather
+than copying another shop's code or branding:
+
+- Editorial high-contrast welcome screen, product hero and orange call-to-action
+- Consistent off-white / ink / vivid orange palette, rounded controls, typography
+- Desktop tab navigation and compact mobile navigation with cart badge
+- Debounced search, brand/category chips, pricing/sale filters and responsive grid
+- Shared product-card component in main catalogue, favorites and branch catalogues
+- Two-column product detail on desktop; stacked swipe gallery and EU-size picker on mobile
+- Larger map store cards and a responsive bag/order-summary checkout
+- All former REST/BLoC/SQLite functionality remains in place
+
+The product and editorial images are illustrative third-party URLs that require
+an Internet connection. They are not actual SKU-specific licensed product photos,
+so replace with owned/licensed assets before a real retail release.
+
+Manual layout checks worth doing for the in-class defense: Chrome desktop around
+1440px wide, responsive 768px tablet, 390px and 320px mobile viewport sizes,
+both light and dark modes, sign-in, gallery swipe, cart quantity, and map store
+selection. CI verifies Dart analysis, tests and web compilation; it does not
+replace a real visual UX review in the browser.
+
 ## Open the COMPLETE app in Chrome (Windows)
 
 Get this branch, open the folder containing `pubspec.yaml` in Android Studio or PowerShell.
