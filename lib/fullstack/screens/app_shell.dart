@@ -207,7 +207,7 @@ class _DashboardState extends State<Dashboard> {
     final cubit = context.read<ShopCubit>();
     final state = context.watch<ShopCubit>().state;
     final role = state.user?['role'] as String? ?? 'customer';
-    final desktop = MediaQuery.sizeOf(context).width >= 870;
+    final desktop = MediaQuery.sizeOf(context).width >= 1230;
     final customer = role == 'customer';
     final admin = role == 'admin';
     final screens = admin
@@ -253,7 +253,7 @@ class _DashboardState extends State<Dashboard> {
           ),
           onPressed: () => cubit.selectTab(index),
           child: Text(names[index], style: TextStyle(fontWeight: active
-            ? FontWeight.w900 : FontWeight.w650)),
+            ? FontWeight.w900 : FontWeight.w600)),
         ),
       );
     }

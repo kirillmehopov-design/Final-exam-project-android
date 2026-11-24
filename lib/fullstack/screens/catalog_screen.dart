@@ -18,6 +18,7 @@ class _CatalogPageState extends State<CatalogPage> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -32,16 +33,6 @@ class _CatalogPageState extends State<CatalogPage> {
   });
 
   final _searchController = TextEditingController();
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void deactivate() {
-    super.deactivate();
-  }
-
   Widget _hero(BuildContext context, double width) {
     final narrow = width < 670;
     final heroHeight = narrow ? 325.0 : 385.0;
@@ -280,7 +271,7 @@ class _CatalogPageState extends State<CatalogPage> {
                   crossAxisAlignment: WrapCrossAlignment.center, children: [
                     SizedBox(width: narrow ? 155 : 192,
                       child: DropdownButtonFormField<String>(
-                        initialValue: category,
+                        key: ValueKey('category-$category'), initialValue: category,
                         isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Category', isDense: true),
                         items: [for (final value in categories)
@@ -289,7 +280,7 @@ class _CatalogPageState extends State<CatalogPage> {
                       )),
                     SizedBox(width: narrow ? 175 : 210,
                       child: DropdownButtonFormField<String>(
-                        initialValue: sortBy, isExpanded: true,
+                        key: ValueKey('sort-$sortBy'), initialValue: sortBy, isExpanded: true,
                         decoration: const InputDecoration(labelText: 'Sort by', isDense: true),
                         items: [for (final value in const [
                           'Featured', 'Price: low to high',
