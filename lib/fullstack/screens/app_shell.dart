@@ -62,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (!desktop) const Padding(
               padding: EdgeInsets.only(bottom: 34),
-              child: Text('SNEAKERHUB.', textAlign: TextAlign.center,
+              child: Text('SNEAKERHUB', textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900,
                   letterSpacing: -1.6))),
             SneakerDesign.eyebrow('Your sneaker universe'),
@@ -160,7 +160,7 @@ class _LoginPageState extends State<LoginPage> {
               Padding(
                 padding: const EdgeInsets.all(50),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('SNEAKERHUB.', style: TextStyle(color: Colors.white,
+                  const Text('SNEAKERHUB', style: TextStyle(color: Colors.white,
                     fontSize: 30, letterSpacing: -1.5, fontWeight: FontWeight.w900)),
                   const Spacer(),
                   const Text('NOT JUST SHOES.\nA WAY OF LIFE.',
@@ -247,7 +247,7 @@ class _DashboardState extends State<Dashboard> {
             foregroundColor: active ? SneakerDesign.orange
               : Theme.of(context).colorScheme.onSurface,
             backgroundColor: active
-              ? SneakerDesign.orange.withValues(alpha: .08) : null,
+              ? SneakerDesign.lime.withValues(alpha: .45) : null,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -265,7 +265,7 @@ class _DashboardState extends State<Dashboard> {
         title: InkWell(
           onTap: () => cubit.selectTab(0),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.bolt_rounded, color: SneakerDesign.orange, size: 29),
+            const Icon(Icons.auto_awesome_rounded, color: SneakerDesign.ink, size: 27),
             const SizedBox(width: 4),
             Text('SNEAKERHUB.', style: TextStyle(
               fontSize: desktop ? 22 : 18, letterSpacing: -1.1,
@@ -302,18 +302,22 @@ class _DashboardState extends State<Dashboard> {
           SizedBox(width: desktop ? 26 : 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(29),
-          child: Container(height: 29, width: double.infinity,
-            color: SneakerDesign.ink,
+          preferredSize: const Size.fromHeight(31),
+          child: Container(height: 31, width: double.infinity,
+            color: SneakerDesign.lime,
             alignment: Alignment.center,
             child: Text(desktop
-              ? 'ALMATY · 10 DEMO STORES     •     CURATED SNEAKERS     •     CLICK & COLLECT'
-              : 'SNEAKER CULTURE · ALMATY',
-              style: const TextStyle(color: Colors.white,
-                fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+              ? 'SNEAKERHUB  /  ALMATY          10 CONCEPT STORES          CLICK & COLLECT  •  DELIVERY ESTIMATES'
+              : '10 ALMATY DEMO STORES  •  FIND YOUR SIZE',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: SneakerDesign.ink,
+                fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.25))),
         ),
       ),
-      body: IndexedStack(index: selected, children: screens),
+      body: Column(children: [
+        Expanded(child: IndexedStack(index: selected, children: screens)),
+        if (desktop && selected != 0) const SneakerSiteFooter(compact: true),
+      ]),
       bottomNavigationBar: desktop ? null : NavigationBar(
         selectedIndex: barSelected,
         onDestinationSelected: (index) => cubit.selectTab(bottomIndices[index]),
@@ -324,7 +328,7 @@ class _DashboardState extends State<Dashboard> {
                 ? Badge(isLabelVisible: count > 0,
                     label: Text('$count'), child: Icon(icons[index]))
                 : Icon(icons[index]),
-              selectedIcon: Icon(icons[index], color: SneakerDesign.orange),
+              selectedIcon: Icon(icons[index], color: SneakerDesign.ink),
               label: names[index],
             ),
         ],
