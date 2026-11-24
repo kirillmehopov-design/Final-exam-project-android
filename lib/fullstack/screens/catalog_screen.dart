@@ -10,7 +10,7 @@ class _CatalogPageState extends State<CatalogPage> {
   String query = '';
   String brand = 'All';
   String category = 'All';
-  String sortBy = 'Recommended';
+  String sortBy = 'Featured';
   bool offersOnly = false;
   bool inStockOnly = false;
   Timer? _searchDebounce;
@@ -19,6 +19,129 @@ class _CatalogPageState extends State<CatalogPage> {
   void dispose() {
     _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _clearFilters() => setState(() {
+    query = '';
+    brand = 'All';
+    category = 'All';
+    sortBy = 'Featured';
+    offersOnly = false;
+    inStockOnly = false;
+    _searchController.clear();
+  });
+
+  final _searchController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void deactivate() {
+    super.deactivate();
+  }
+
+  Widget _hero(BuildContext context, double width) {
+    final narrow = width < 670;
+    final heroHeight = narrow ? 325.0 : 385.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: SizedBox(
+        height: heroHeight,
+        child: Stack(fit: StackFit.expand, children: [
+          Image.network(
+            'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=85',
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
+            errorBuilder: (_, __, ___) =>
+              const ColoredBox(color: Color(0xFF554D43)),
+          ),
+          DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.centerLeft, end: Alignment.centerRight,
+            colors: [Colors.black.withValues(alpha: .88),
+              Colors.black.withValues(alpha: narrow ? .44 : .05)],
+          ))),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: narrow ? 25 : 53,
+              vertical: narrow ? 24 : 44),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('SNEAKERHUB  /  ALMATY',
+                style: TextStyle(color: Color(0xFFFFAC93), fontSize: 11,
+                  fontWeight: FontWeight.w900, letterSpacing: 2.7)),
+              const Spacer(),
+              Text('FIND YOUR\nNEXT MOVE.',
+                style: TextStyle(color: Colors.white,
+                  fontSize: narrow ? 39 : 65, height: 1.02,
+                  letterSpacing: narrow ? -1.6 : -3,
+                  fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              Text('Fresh silhouettes. Local stores. Your style.',
+                style: TextStyle(color: Colors.white.withValues(alpha: .88),
+                  fontSize: narrow ? 13 : 16)),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: SneakerDesign.orange, foregroundColor: Colors.white),
+                onPressed: () => context.read<ShopCubit>().selectTab(2),
+                icon: const Icon(Icons.north_east_rounded, size: 18),
+                label: const Text('Explore Almaty stores')),
+            ]),
+          ),
+          Positioned(top: 17, right: 17,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .45),
+                borderRadius: BorderRadius.circular(10)),
+              child: const Text('DEMO COLLECTION',
+                style: TextStyle(color: Colors.white, fontSize: 9,
+                  fontWeight: FontWeight.bold, letterSpacing: 1.3)))),
+        ]),
+      ),
+    );
+  }
+
+  Widget _benefits(BuildContext context, bool narrow) {
+    final info = [
+      (Icons.storefront_outlined, '10 ALMATY STORES', 'Explore branch availability'),
+      (Icons.local_shipping_outlined, 'HOME DELIVERY', 'Estimate before ordering'),
+      (Icons.swap_horiz_rounded, 'FIND YOUR SIZE', 'Check stock across branches'),
+    ];
+    return narrow ? Column(
+      children: [
+        for (final item in info)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Row(children: [
+              Icon(item.$1, color: SneakerDesign.orange, size: 22),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.$2, style: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: .6)),
+                Text(item.$3, style: Theme.of(context).textTheme.bodySmall),
+              ])),
+            ]),
+          ),
+      ],
+    ) : Row(
+      children: [
+        for (final item in info)
+          Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(children: [
+              Icon(item.$1, color: SneakerDesign.orange, size: 27),
+              const SizedBox(width: 11),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.$2, style: const TextStyle(
+                  fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: .7)),
+                Text(item.$3, maxLines: 2,
+                  style: Theme.of(context).textTheme.bodySmall),
+              ])),
+            ]),
+          )),
+      ],
+    );
   }
 
   @override
@@ -39,27 +162,25 @@ class _CatalogPageState extends State<CatalogPage> {
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => context.read<ShopCubit>().retryCatalog(),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-          ),
+            icon: const Icon(Icons.refresh), label: const Text('Retry')),
         ]),
       ));
     }
-    final brands = ['All', ...state.products.map((p) => p['brand'] as String).toSet()]..sort();
-    final categories = ['All', ...state.products.map((p) => p['category'] as String).toSet()]..sort();
+    final brands = ['All',
+      ...(state.products.map((p) => p['brand'] as String).toSet().toList()..sort())];
+    final categories = ['All',
+      ...(state.products.map((p) => p['category'] as String).toSet().toList()..sort())];
     final filtered = state.products.where((p) {
-      final text = (p['name'] as String).toLowerCase();
-      final brandText = (p['brand'] as String).toLowerCase();
-      final matchesQuery = query.trim().isEmpty ||
-          text.contains(query.toLowerCase().trim()) ||
-          brandText.contains(query.toLowerCase().trim());
+      final name = (p['name'] as String).toLowerCase();
+      final vendor = (p['brand'] as String).toLowerCase();
       final available = Map<String, dynamic>.from(p['sizes'] as Map)
-          .values.any((q) => (q as num).toInt() > 0);
-      return matchesQuery &&
-          (brand == 'All' || p['brand'] == brand) &&
-          (category == 'All' || p['category'] == category) &&
-          (!offersOnly || (p['discount'] as int) > 0) &&
-          (!inStockOnly || available);
+        .values.any((q) => (q as num).toInt() > 0);
+      return (query.trim().isEmpty || name.contains(query.toLowerCase().trim())
+          || vendor.contains(query.toLowerCase().trim())) &&
+        (brand == 'All' || p['brand'] == brand) &&
+        (category == 'All' || p['category'] == category) &&
+        (!offersOnly || (p['discount'] as int) > 0) &&
+        (!inStockOnly || available);
     }).toList();
     switch (sortBy) {
       case 'Price: low to high':
@@ -73,147 +194,149 @@ class _CatalogPageState extends State<CatalogPage> {
         break;
     }
     return LayoutBuilder(builder: (context, constraints) {
-      final cols = constraints.maxWidth > 950 ? 4 : constraints.maxWidth > 580 ? 3 : 2;
+      final w = constraints.maxWidth;
+      final narrow = w < 650;
+      final gap = narrow ? 10.0 : 18.0;
+      final columns = w >= 1260 ? 4 : w >= 750 ? 3 : 2;
+      final padding = w < 500 ? 14.0 : w < 900 ? 24.0 : 44.0;
+      final tileWidth = (w - (padding * 2) - gap * (columns - 1)) / columns;
+      final tileHeight = tileWidth * 1.06 + 120;
       return RefreshIndicator(
         onRefresh: () => context.read<ShopCubit>().refresh(),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-        if (state.catalogLoading)
-          const SliverToBoxAdapter(
-            child: LinearProgressIndicator(),
-          ),
-        if (state.catalogError != null)
-          SliverToBoxAdapter(
-            child: Card(
-              margin: const EdgeInsets.all(12),
+            if (state.catalogLoading) const SliverToBoxAdapter(
+              child: LinearProgressIndicator()),
+            if (state.catalogError != null) SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Network request failed. Showing cached results if available.'),
-                    const SizedBox(height: 6),
-                    Text(
-                      state.catalogError!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => context.read<ShopCubit>().retryCatalog(),
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
-                      ),
-                    ),
-                  ],
+                padding: EdgeInsets.all(padding),
+                child: Card(child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(children: [
+                    const Icon(Icons.wifi_off_outlined),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Connection interrupted. Cached results may be shown.')),
+                    TextButton(
+                      onPressed: () => context.read<ShopCubit>().retryCatalog(),
+                      child: const Text('Retry')),
+                  ]),
+                )),
+              )),
+            SliverToBoxAdapter(child: Padding(
+              padding: EdgeInsets.fromLTRB(padding, 20, padding, 6),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _hero(context, w),
+                const SizedBox(height: 18),
+                _benefits(context, narrow),
+                const SizedBox(height: 27),
+                Row(children: [
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      SneakerDesign.eyebrow('The collection'),
+                      const SizedBox(height: 4),
+                      Text('Discover sneakers.',
+                        style: TextStyle(fontSize: narrow ? 26 : 38,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.3)),
+                    ])),
+                  Text('${filtered.length} STYLES',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      letterSpacing: 1.7, fontWeight: FontWeight.bold)),
+                ]),
+                const SizedBox(height: 17),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                      if (mounted) setState(() => query = value);
+                    });
+                  },
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: 'Search Nike, Adidas, Air Jordan...',
+                    suffixIcon: query.isEmpty ? null : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: _clearFilters,
+                      icon: const Icon(Icons.close)),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        SliverToBoxAdapter(child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF111D3F), Color(0xFF3756A4)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                const SizedBox(height: 13),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    for (final value in brands)
+                      Padding(padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(value == 'All' ? 'All brands' : value),
+                          selected: brand == value,
+                          onSelected: (_) => setState(() => brand = value),
+                        )),
+                  ]),
                 ),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('SNEAKERHUB / ALMATY',
-                    style: TextStyle(color: Color(0xFFAFC5FF), letterSpacing: 1.6, fontSize: 11,
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 9),
-                const Text('Your next pair starts here.',
-                    style: TextStyle(color: Colors.white, fontSize: 26,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                Text('${state.products.length} sneaker styles • prices in ₸ • demo checkout',
-                    style: const TextStyle(color: Colors.white70)),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white70)),
-                    onPressed: () => context.read<ShopCubit>().selectTab(2),
-                    icon: const Icon(Icons.location_on_outlined),
-                    label: const Text('Find 10 Almaty demo stores')),
+                Wrap(spacing: 9, runSpacing: 9,
+                  crossAxisAlignment: WrapCrossAlignment.center, children: [
+                    SizedBox(width: narrow ? 155 : 192,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: category,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                        items: [for (final value in categories)
+                          DropdownMenuItem(value: value, child: Text(value))],
+                        onChanged: (v) => setState(() => category = v ?? 'All'),
+                      )),
+                    SizedBox(width: narrow ? 175 : 210,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: sortBy, isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Sort by', isDense: true),
+                        items: [for (final value in const [
+                          'Featured', 'Price: low to high',
+                          'Price: high to low', 'Biggest discount'])
+                          DropdownMenuItem(value: value, child: Text(value))],
+                        onChanged: (v) => setState(() => sortBy = v ?? 'Featured'),
+                      )),
+                    FilterChip(
+                      label: const Text('Offers'),
+                      avatar: const Icon(Icons.local_offer_outlined, size: 16),
+                      selected: offersOnly,
+                      onSelected: (v) => setState(() => offersOnly = v)),
+                    FilterChip(
+                      label: const Text('Available'),
+                      avatar: const Icon(Icons.check_circle_outline, size: 16),
+                      selected: inStockOnly,
+                      onSelected: (v) => setState(() => inStockOnly = v)),
+                    TextButton.icon(
+                      onPressed: _clearFilters,
+                      icon: const Icon(Icons.restart_alt_outlined, size: 17),
+                      label: const Text('Reset')),
+                  ]),
+                const SizedBox(height: 12),
               ]),
+            )),
+            if (filtered.isEmpty) SliverToBoxAdapter(
+              child: Padding(padding: const EdgeInsets.all(40),
+                child: Center(child: Column(children: [
+                  const Icon(Icons.search_off_outlined, size: 46),
+                  const SizedBox(height: 14),
+                  const Text('No sneakers match your filters.'),
+                  TextButton(onPressed: _clearFilters,
+                    child: const Text('Clear filters')),
+                ])))),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(padding, 0, padding, 40),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns, crossAxisSpacing: gap, mainAxisSpacing: gap,
+                  mainAxisExtent: tileHeight.clamp(255.0, 490.0),
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) =>
+                    ProductTile(product: filtered[index]), childCount: filtered.length),
+              ),
             ),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: Text('Discover sneakers',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800))),
-              Text('${filtered.length} results',
-                style: Theme.of(context).textTheme.bodySmall),
-            ]),
-            const SizedBox(height: 12),
-            TextField(onChanged: (value) {
-              _searchDebounce?.cancel();
-              _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-                if (mounted) setState(() => query = value);
-              });
-            },
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.search),
-                hintText: 'Search by model...', filled: true, border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
-              for (final value in brands)
-                Padding(padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(label: Text(value), selected: brand == value,
-                    onSelected: (_) => setState(() => brand = value))),
-            ])),
-            const SizedBox(height: 10),
-            Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              SizedBox(width: 170, child: DropdownButtonFormField<String>(
-                value: category, isExpanded: true,
-                decoration: const InputDecoration(
-                    labelText: 'Category', isDense: true, border: OutlineInputBorder()),
-                items: [for (final value in categories)
-                  DropdownMenuItem(value: value, child: Text(value))],
-                onChanged: (v) => setState(() => category = v ?? 'All'),
-              )),
-              SizedBox(width: 190, child: DropdownButtonFormField<String>(
-                value: sortBy, isExpanded: true,
-                decoration: const InputDecoration(
-                    labelText: 'Sort', isDense: true, border: OutlineInputBorder()),
-                items: [for (final value in const [
-                    'Recommended', 'Price: low to high', 'Price: high to low', 'Biggest discount'])
-                  DropdownMenuItem(value: value, child: Text(value))],
-                onChanged: (v) => setState(() => sortBy = v ?? 'Recommended'),
-              )),
-              FilterChip(
-                label: const Text('On sale'), selected: offersOnly,
-                onSelected: (v) => setState(() => offersOnly = v)),
-              FilterChip(
-                label: const Text('In stock'), selected: inStockOnly,
-                onSelected: (v) => setState(() => inStockOnly = v)),
-            ]),
-          ]),
-        )),
-        if (filtered.isEmpty)
-          const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.all(32),
-            child: Center(child: Text('No sneakers found')))),
-        SliverPadding(
-          padding: const EdgeInsets.all(12),
-          sliver: SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols, crossAxisSpacing: 10, mainAxisSpacing: 10,
-              childAspectRatio: constraints.maxWidth < 380 ? .65 : .75,
-            ),
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final product = filtered[index];
-              return ProductTile(product: product);
-            }, childCount: filtered.length),
-          ),
+          ],
         ),
-          ]),
       );
     });
   }
