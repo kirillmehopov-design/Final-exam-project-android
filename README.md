@@ -12,6 +12,8 @@ based on the student's Lab 11. **© SneakerHub 2026** is displayed in its footer
 For honest grading status see [FINAL(2) rubric audit](docs/FINAL2_RUBRIC_AUDIT.md).
 For UI and device tests see [V2 UX notes](docs/UI_V2_DEFENSE.md).
 
+Custom icon/splash assets are generated in CI using `tooling/create_brand_icon.py` and the Flutter launcher/splash packages. The Actions artifact includes them; the raw source ZIP requires the generation commands described in the UX notes.
+
 ---
 
 # SneakerHub Almaty — Final Exam (based on Lab 11)

@@ -35,3 +35,20 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000
 
 CI verifies analyzer, widget/API tests and Web compilation. Actual interactive
 rendering with loaded remote photos is not fully validated by CI.
+
+## Custom Android/Web branding (from source ZIP)
+
+The ready GitHub Actions ZIP already includes generated platform assets. When
+working from the raw GitHub source archive, generate them with:
+
+```powershell
+flutter create --platforms=android,web .
+flutter pub get
+py tooling/create_brand_icon.py
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
+```
+
+This produces the original SneakerHub S icon and splash without downloading
+third-party font or logo files. The workflow performs these commands before
+testing, web building and packaging.
