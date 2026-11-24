@@ -208,7 +208,7 @@ class _StoresPageState extends State<StoresPage> {
                                         fontSize: 10)),
                                     shopButton(),
                                   ]),
-                                )),
+                                ),
                               ])),
                             ])
                         : Column(crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +254,8 @@ class _StoresPageState extends State<StoresPage> {
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
               child: Row(children: [
                 Expanded(child: DropdownButtonFormField<String>(
-                  value: _district,
+                  key: ValueKey(_district),
+                  initialValue: _district,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Almaty district',
