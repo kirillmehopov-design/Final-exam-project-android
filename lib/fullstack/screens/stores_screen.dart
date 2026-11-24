@@ -162,9 +162,9 @@ class _StoresPageState extends State<StoresPage> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(9),
                               child: Image.network((store['photos'] as List).first as String,
-                                height: 64, width: double.infinity, fit: BoxFit.cover,
+                                height: 92, width: double.infinity, fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => const SizedBox(
-                                  height: 64, child: Icon(Icons.storefront))),
+                                  height: 92, child: Icon(Icons.storefront))),
                             ),
                           const SizedBox(height: 3),
                           Text('${store['available_models'] ?? 0} models with stock',
@@ -253,7 +253,7 @@ class _StoresPageState extends State<StoresPage> {
                 borderRadius: BorderRadius.circular(16),
                 child: mapWidget,
               )),
-              SizedBox(height: 164, child: cards),
+              SizedBox(height: 235, child: cards),
             ]);
           }
           return Row(children: [
