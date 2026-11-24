@@ -34,7 +34,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: SneakerHub-Final-Redesign-Android-Web
-          path: SneakerHub-Final-Lab11.zip
+          path: SneakerHub-Final-Redesign.zip
+          if-no-files-found: error
           retention-days: 14
 
   backend:
