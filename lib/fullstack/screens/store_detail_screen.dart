@@ -13,6 +13,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   late Future<(Json, List<Json>)> _future;
   String filter = '';
   bool availableOnly = false;
+  int galleryPage = 0;
 
   @override
   void initState() {
@@ -105,10 +106,11 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                             height: limits.maxWidth < 500 ? 205 : 295,
                             child: PageView.builder(
                               itemCount: photos.length,
+                              onPageChanged: (index) => setState(() => galleryPage = index),
                               itemBuilder: (ctx, index) => Padding(
                                 padding: const EdgeInsets.only(right: 7),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(6),
                                   child: Image.network(photos[index],
                                     fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => Container(
@@ -119,7 +121,20 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
+                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            for (var i = 0; i < photos.length; i++)
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 220),
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                height: 5, width: i == galleryPage ? 25 : 8,
+                                decoration: BoxDecoration(
+                                  color: i == galleryPage
+                                    ? SneakerDesign.ink : SneakerDesign.line,
+                                  borderRadius: BorderRadius.circular(3)),
+                              ),
+                          ]),
+                          const SizedBox(height: 28),
                           SneakerDesign.eyebrow('Almaty / Curated spaces'),
                           const SizedBox(height: 7),
                           Text(store['name'] as String,
@@ -142,6 +157,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                           const Text('DEMO STORE • Photos and opening hours are illustrative.',
                             style: TextStyle(fontSize: 11, color: Colors.grey)),
                           const Divider(height: 40),
+                          SneakerDesign.eyebrow('This branch / live demo stock'),
+                          const SizedBox(height: 5),
                           Text('Shop this store',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold)),
@@ -156,7 +173,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                             title: const Text('Only available models'),
                             value: availableOnly,
                             onChanged: (v) => setState(() => availableOnly = v)),
-                          Text('${visible.length} models • Same selection, branch-specific quantities'),
+                          Text('${visible.length} models • Different quantities by size, per branch',
+                            style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ),
@@ -177,6 +195,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                         ), childCount: visible.length),
                     ),
                   ),
+                  const SliverToBoxAdapter(child: SneakerSiteFooter()),
                 ],
               ),
             );
