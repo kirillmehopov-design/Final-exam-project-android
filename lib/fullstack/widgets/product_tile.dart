@@ -64,14 +64,27 @@ class _ProductTileState extends State<ProductTile> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(
               child: Stack(fit: StackFit.expand, children: [
-                ColoredBox(color: SneakerDesign.imageSurface,
-                  child: AnimatedScale(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOut,
-                    scale: _hovered ? 1.05 : 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(9),
-                      child: photo(p['image_url'] as String, height: 260),
+                ColoredBox(
+                  color: SneakerDesign.imageSurface,
+                  // Every product photo fills the same card frame regardless
+                  // of whether the source is portrait, square or landscape.
+                  // Crop excess edges rather than shrinking the whole photo.
+                  child: ClipRect(
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                      scale: _hovered ? 1.05 : 1,
+                      child: Image.network(
+                        p['image_url'] as String,
+                        width: double.infinity,
+                        height: double.infinity,
+                        alignment: Alignment.center,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.image_not_supported_outlined,
+                            color: SneakerDesign.muted, size: 36),
+                        ),
+                      ),
                     ),
                   ),
                 ),
