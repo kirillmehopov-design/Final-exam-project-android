@@ -1,15 +1,21 @@
-name: sneakerhub
-description: Sneaker marketplace Flutter capstone project - Milestone 1.
-publish_to: "none"
-version: 1.0.0+1
+name: lab10_from_lab9
+description: SneakerHub Almaty final, Flutter BLoC, REST, SQLite and Lab 11 vault.
+publish_to: 'none'
+version: 1.1.0+2
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  http: ^1.2.0
+  shared_preferences: ^2.3.2
+  flutter_bloc: ^9.1.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

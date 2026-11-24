@@ -1,107 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'data/products.dart';
-import 'models/cart_item.dart';
-import 'models/product.dart';
-import 'screens/home_screen.dart';
+import 'fullstack/api_client.dart';
+import 'fullstack/shop_cubit.dart';
+import 'fullstack/shop_ui.dart';
+import 'providers/local_store.dart';
+import 'providers/notes_vault_provider.dart';
+import 'providers/theme_cubit.dart';
 
-void main() {
-  runApp(const SneakerHubApp());
-}
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
 
-class SneakerHubApp extends StatefulWidget {
-  const SneakerHubApp({super.key});
-
-  @override
-  State<SneakerHubApp> createState() => _SneakerHubAppState();
-}
-
-class _SneakerHubAppState extends State<SneakerHubApp> {
-  final Set<int> favoriteIds = {};
-  final List<CartItem> cartItems = [];
-
-  int get cartCount {
-    return cartItems.fold(
-      0,
-      (total, item) => total + item.quantity,
-    );
+  // Preserve the Lab 11 theme if this is the first run of the new UI.
+  final previousDark = prefs.getBool(NotesVaultProvider.themeKey);
+  if (prefs.getBool('sneakerhub.theme.dark') == null && previousDark != null) {
+    await prefs.setBool('sneakerhub.theme.dark', previousDark);
   }
 
-  void toggleFavorite(int productId) {
-    setState(() {
-      if (favoriteIds.contains(productId)) {
-        favoriteIds.remove(productId);
-      } else {
-        favoriteIds.add(productId);
-      }
-    });
-  }
+  final vault = await NotesVaultProvider.load();
+  final store = LocalStore(prefs);
+  final api = ApiClient();
 
-  void addToCart(Product product, int size) {
-    setState(() {
-      final index = cartItems.indexWhere(
-        (item) => item.product.id == product.id && item.size == size,
-      );
-
-      if (index == -1) {
-        cartItems.add(
-          CartItem(
-            product: product,
-            size: size,
+  runApp(
+    ChangeNotifierProvider<NotesVaultProvider>.value(
+      value: vault,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<ThemeCubit>(create: (_) => ThemeCubit(store)),
+          BlocProvider<ShopCubit>(
+            create: (_) => ShopCubit(api, store)..initialize(),
           ),
-        );
-      } else {
-        cartItems[index].quantity++;
-      }
-    });
-  }
-
-  void increaseCartItem(CartItem item) {
-    setState(() {
-      item.quantity++;
-    });
-  }
-
-  void decreaseCartItem(CartItem item) {
-    setState(() {
-      if (item.quantity > 1) {
-        item.quantity--;
-      } else {
-        cartItems.remove(item);
-      }
-    });
-  }
-
-  void removeCartItem(CartItem item) {
-    setState(() {
-      cartItems.remove(item);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SneakerHub',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF111111),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7F7F7),
+        ],
+        child: const SneakerHubFullstackApp(),
       ),
-      home: HomeScreen(
-        products: products,
-        favoriteIds: favoriteIds,
-        cartItems: cartItems,
-        cartCount: cartCount,
-        onToggleFavorite: toggleFavorite,
-        onAddToCart: addToCart,
-        onIncreaseCartItem: increaseCartItem,
-        onDecreaseCartItem: decreaseCartItem,
-        onRemoveCartItem: removeCartItem,
-      ),
-    );
-  }
+    ),
+  );
 }
