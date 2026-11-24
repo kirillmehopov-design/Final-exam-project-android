@@ -20,6 +20,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Bonus: narxoz://store/product/1 opens a sneaker detail. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="narxoz"
+                      android:host="store"
+                      android:pathPrefix="/product/" />
+            </intent-filter>
         </activity>
         <meta-data android:name="flutterEmbedding" android:value="2" />
     </application>

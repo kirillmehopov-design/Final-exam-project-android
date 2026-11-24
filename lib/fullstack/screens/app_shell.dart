@@ -12,6 +12,27 @@ class SneakerHubFullstackApp extends StatelessWidget {
       themeMode: themeMode,
       theme: SneakerDesign.theme(Brightness.light),
       darkTheme: SneakerDesign.theme(Brightness.dark),
+      onGenerateRoute: (settings) {
+        final uri = Uri.tryParse(settings.name ?? '');
+        if (uri == null) return null;
+        final isCustom = uri.scheme == 'narxoz' && uri.host == 'store';
+        final isWebPath = uri.pathSegments.length >= 3 &&
+            uri.pathSegments.first == 'store';
+        if (!isCustom && !isWebPath) return null;
+        final pieces = uri.pathSegments;
+        if (pieces.length < 2 || pieces[pieces.length - 2] != 'product') {
+          return null;
+        }
+        final id = int.tryParse(pieces.last);
+        if (id == null || id <= 0) return null;
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (context) => BlocProvider.value(
+            value: context.read<ShopCubit>(),
+            child: ProductPage(productId: id),
+          ),
+        );
+      },
       home: BlocConsumer<ShopCubit, ShopState>(
         listenWhen: (before, after) =>
             before.notice != after.notice && after.notice != null,
