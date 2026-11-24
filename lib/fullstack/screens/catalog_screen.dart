@@ -14,11 +14,13 @@ class _CatalogPageState extends State<CatalogPage> {
   bool offersOnly = false;
   bool inStockOnly = false;
   Timer? _searchDebounce;
+  final ScrollController _scroll = ScrollController();
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -33,64 +35,207 @@ class _CatalogPageState extends State<CatalogPage> {
   });
 
   final _searchController = TextEditingController();
+  void _scrollToCollection() {
+    if (!_scroll.hasClients) return;
+    final max = _scroll.position.maxScrollExtent;
+    _scroll.animateTo(max < 1270 ? max : 1270,
+      duration: const Duration(milliseconds: 550),
+      curve: Curves.easeInOutCubic);
+  }
+
+  void _chooseEdit(String value) {
+    setState(() {
+      category = value;
+      brand = 'All';
+      offersOnly = false;
+      inStockOnly = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCollection();
+    });
+  }
+
   Widget _hero(BuildContext context, double width) {
-    final narrow = width < 670;
-    final heroHeight = narrow ? 325.0 : 385.0;
+    final small = width < 720;
+    final desktop = width >= 720;
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: SneakerDesign.lime)),
+          child: const Text('ALMATY / SNEAKER CULTURE / 2026',
+            style: TextStyle(color: SneakerDesign.lime,
+              fontSize: 10, fontWeight: FontWeight.w800,
+              letterSpacing: 1.5)),
+        ),
+        const Spacer(),
+        Text('STEP INTO\nSOMETHING\nNEW.',
+          style: TextStyle(color: Colors.white,
+            fontSize: small ? 43 : 62, height: .95,
+            fontWeight: FontWeight.w900, letterSpacing: small ? -2 : -3.5)),
+        const SizedBox(height: 16),
+        Text('Your sneakers, your city. Find iconic pairs, check your size\nand shop your nearest SneakerHub concept store.',
+          style: const TextStyle(color: Colors.white70,
+            fontSize: 13, height: 1.6),
+          maxLines: small ? 3 : 4),
+        const SizedBox(height: 20),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: SneakerDesign.lime,
+              foregroundColor: SneakerDesign.ink),
+            onPressed: _scrollToCollection,
+            icon: const Icon(Icons.arrow_downward, size: 18),
+            label: const Text('SHOP THE COLLECTION')),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white54)),
+            onPressed: () => context.read<ShopCubit>().selectTab(2),
+            icon: const Icon(Icons.location_on_outlined, size: 18),
+            label: const Text('10 STORES')),
+        ]),
+        if (desktop) const SizedBox(height: 22),
+      ],
+    );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: SizedBox(
-        height: heroHeight,
-        child: Stack(fit: StackFit.expand, children: [
-          Image.network(
-            'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=85',
-            fit: BoxFit.cover,
-            alignment: Alignment.centerRight,
-            errorBuilder: (_, __, ___) =>
-              const ColoredBox(color: Color(0xFF554D43)),
-          ),
-          DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
-            begin: Alignment.centerLeft, end: Alignment.centerRight,
-            colors: [Colors.black.withValues(alpha: .88),
-              Colors.black.withValues(alpha: narrow ? .44 : .05)],
-          ))),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: narrow ? 25 : 53,
-              vertical: narrow ? 24 : 44),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('SNEAKERHUB  /  ALMATY',
-                style: TextStyle(color: Color(0xFFFFAC93), fontSize: 11,
-                  fontWeight: FontWeight.w900, letterSpacing: 2.7)),
-              const Spacer(),
-              Text('FIND YOUR\nNEXT MOVE.',
-                style: TextStyle(color: Colors.white,
-                  fontSize: narrow ? 39 : 65, height: 1.02,
-                  letterSpacing: narrow ? -1.6 : -3,
-                  fontWeight: FontWeight.w900)),
-              const SizedBox(height: 12),
-              Text('Fresh silhouettes. Local stores. Your style.',
-                style: TextStyle(color: Colors.white.withValues(alpha: .88),
-                  fontSize: narrow ? 13 : 16)),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: SneakerDesign.orange, foregroundColor: Colors.white),
-                onPressed: () => context.read<ShopCubit>().selectTab(2),
-                icon: const Icon(Icons.north_east_rounded, size: 18),
-                label: const Text('Explore Almaty stores')),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        color: SneakerDesign.graphite,
+        height: small ? 440 : 510,
+        child: Stack(children: [
+          if (small)
+            Positioned.fill(child: Image.network(
+              'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1400&q=85',
+              fit: BoxFit.cover, alignment: Alignment.centerRight,
+              errorBuilder: (_, __, ___) =>
+                const ColoredBox(color: Color(0xFF383D39)))),
+          if (small)
+            Positioned.fill(child: DecoratedBox(
+              decoration: BoxDecoration(gradient: LinearGradient(
+                begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                colors: [Colors.black.withValues(alpha: .36),
+                  Colors.black.withValues(alpha: .92)])))),
+          if (small)
+            Positioned.fill(child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 25, 22, 28), child: text)),
+          if (!small)
+            Row(children: [
+              Expanded(flex: 10,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(50, 38, 0, 34),
+                  child: text)),
+              Expanded(flex: 11,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 16, 16, 16),
+                  child: Stack(fit: StackFit.expand, children: [
+                    ClipRRect(borderRadius: BorderRadius.circular(5),
+                      child: Image.network(
+                        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1500&q=85',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                          const ColoredBox(color: Color(0xFF46443F)))),
+                    const Positioned(top: 20, left: 20,
+                      child: Text('THE CURATED EDIT.   /   001',
+                        style: TextStyle(color: Colors.white,
+                          fontSize: 11, fontWeight: FontWeight.w900,
+                          letterSpacing: 2))),
+                    const Positioned(bottom: 17, right: 18,
+                      child: Text('MOVE DIFFERENT ↗',
+                        style: TextStyle(color: Colors.white,
+                          fontSize: 11, fontWeight: FontWeight.w900,
+                          letterSpacing: 2))),
+                  ]))),
             ]),
-          ),
-          Positioned(top: 17, right: 17,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: .45),
-                borderRadius: BorderRadius.circular(10)),
-              child: const Text('DEMO COLLECTION',
-                style: TextStyle(color: Colors.white, fontSize: 9,
-                  fontWeight: FontWeight.bold, letterSpacing: 1.3)))),
         ]),
       ),
     );
+  }
+
+  Widget _shopEdits(BuildContext context, bool narrow) {
+    final edits = <(String, String, String, String)>[
+      ('Lifestyle', 'EVERYDAY ICONS', 'Made for every move.',
+        'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=700&q=85'),
+      ('Running', 'RUN CLUB', 'Comfort, from day one.',
+        'https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=700&q=85'),
+      ('Streetwear', 'STREET ESSENTIALS', 'Own the pavement.',
+        'https://images.unsplash.com/photo-1600269452121-4f2416e55c28?auto=format&fit=crop&w=700&q=85'),
+    ];
+    Widget card((String, String, String, String) item) => InkWell(
+      onTap: () => _chooseEdit(item.$1),
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        height: narrow ? 190 : 260,
+        decoration: BoxDecoration(color: SneakerDesign.imageSurface,
+          borderRadius: BorderRadius.circular(5)),
+        child: Stack(fit: StackFit.expand, children: [
+          ClipRRect(borderRadius: BorderRadius.circular(5),
+            child: Image.network(item.$4, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                const ColoredBox(color: Color(0xFF737B71)))),
+          DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Colors.transparent, Colors.black.withValues(alpha: .85)]))),
+          Positioned(bottom: 20, left: 20, right: 14, child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.$2, style: const TextStyle(
+                color: Colors.white, fontSize: 20, letterSpacing: -.7,
+                fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(child: Text(item.$3, style:
+                  const TextStyle(color: Colors.white70, fontSize: 12))),
+                const Icon(Icons.arrow_outward, color: SneakerDesign.lime, size: 21),
+              ]),
+            ])),
+        ]),
+      ),
+    );
+    if (narrow) return SizedBox(
+      height: 195,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: edits.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 11),
+        itemBuilder: (_, i) => SizedBox(width: 250, child: card(edits[i])),
+      ),
+    );
+    return Row(children: [
+      for (var i = 0; i < edits.length; i++) ...[
+        if (i > 0) const SizedBox(width: 15),
+        Expanded(child: card(edits[i])),
+      ],
+    ]);
+  }
+
+  Widget _featured(BuildContext context, List<Json> products, bool narrow) {
+    final items = products.take(5).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SneakerDesign.eyebrow('Selected for you'),
+          const SizedBox(height: 5),
+          Text('On our radar.', style: TextStyle(fontWeight: FontWeight.w900,
+            fontSize: narrow ? 26 : 36, letterSpacing: -1.2)),
+        ])),
+        TextButton.icon(onPressed: _scrollToCollection,
+          icon: const Icon(Icons.arrow_outward, size: 18),
+          label: const Text('View all')),
+      ]),
+      const SizedBox(height: 14),
+      SizedBox(height: narrow ? 297 : 346,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (ctx, index) => SizedBox(
+            width: narrow ? 204 : 250,
+            child: ProductTile(product: items[index])),
+        )),
+    ]);
   }
 
   Widget _benefits(BuildContext context, bool narrow) {
@@ -105,7 +250,7 @@ class _CatalogPageState extends State<CatalogPage> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 9),
             child: Row(children: [
-              Icon(item.$1, color: SneakerDesign.orange, size: 22),
+              Icon(item.$1, color: SneakerDesign.ink, size: 22),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.$2, style: const TextStyle(
@@ -121,7 +266,7 @@ class _CatalogPageState extends State<CatalogPage> {
           Expanded(child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(children: [
-              Icon(item.$1, color: SneakerDesign.orange, size: 27),
+              Icon(item.$1, color: SneakerDesign.ink, size: 27),
               const SizedBox(width: 11),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.$2, style: const TextStyle(
@@ -195,6 +340,7 @@ class _CatalogPageState extends State<CatalogPage> {
       return RefreshIndicator(
         onRefresh: () => context.read<ShopCubit>().refresh(),
         child: CustomScrollView(
+          controller: _scroll,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             if (state.catalogLoading) const SliverToBoxAdapter(
@@ -218,7 +364,17 @@ class _CatalogPageState extends State<CatalogPage> {
               padding: EdgeInsets.fromLTRB(padding, 20, padding, 6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 _hero(context, w),
-                const SizedBox(height: 18),
+                const SizedBox(height: 28),
+                SneakerDesign.eyebrow('Explore by attitude'),
+                const SizedBox(height: 7),
+                Text('Find your lane.',
+                  style: TextStyle(fontSize: narrow ? 27 : 36,
+                    fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                const SizedBox(height: 15),
+                _shopEdits(context, narrow),
+                const SizedBox(height: 34),
+                _featured(context, state.products, narrow),
+                const SizedBox(height: 15),
                 _benefits(context, narrow),
                 const SizedBox(height: 27),
                 Row(children: [
@@ -325,6 +481,14 @@ class _CatalogPageState extends State<CatalogPage> {
                 delegate: SliverChildBuilderDelegate((context, index) =>
                     ProductTile(product: filtered[index]), childCount: filtered.length),
               ),
+            ),
+            SliverToBoxAdapter(
+              child: SneakerSiteFooter(onBackToTop: () {
+                if (_scroll.hasClients) {
+                  _scroll.animateTo(0, duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeOutCubic);
+                }
+              }),
             ),
           ],
         ),
