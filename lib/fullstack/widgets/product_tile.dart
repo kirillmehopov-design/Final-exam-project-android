@@ -1,104 +1,165 @@
 part of '../shop_ui.dart';
 
-class ProductTile extends StatelessWidget {
+/// One responsive, accessible sneaker card across catalog / wishlist / stores.
+/// Hover reveals a quick-view cue; tapping the whole card works on touch.
+class ProductTile extends StatefulWidget {
+  const ProductTile({
+    super.key,
+    required this.product,
+    this.storeId,
+    this.onOpen,
+  });
   final Json product;
   final int? storeId;
   final VoidCallback? onOpen;
-  const ProductTile({super.key, required this.product, this.storeId, this.onOpen});
+
+  @override
+  State<ProductTile> createState() => _ProductTileState();
+}
+
+class _ProductTileState extends State<ProductTile> {
+  bool _hovered = false;
+
+  void _open() {
+    if (widget.onOpen != null) {
+      widget.onOpen!();
+      return;
+    }
+    Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: context.read<ShopCubit>(),
+        child: ProductPage(
+          productId: widget.product['id'] as int,
+          storeId: widget.storeId),
+      ),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<ShopCubit>();
-    final isFavorite = cubit.state.favorites.contains(product['id']);
-    final discount = (product['discount'] as int);
-    final sizes = Map<String, dynamic>.from(product['sizes'] as Map);
-    final count = sizes.values.fold<int>(0, (n, item) => n + (item as num).toInt());
-    final lowStock = storeId != null && count > 0 &&
-      sizes.values.any((item) {
-        final quantity = (item as num).toInt();
-        return quantity > 0 && quantity <= 2;
-      });
-    void open() {
-      if (onOpen != null) {
-        onOpen!();
-        return;
-      }
-      Navigator.push(context, MaterialPageRoute(builder: (_) =>
-        BlocProvider.value(value: context.read<ShopCubit>(),
-          child: ProductPage(
-            productId: product['id'] as int, storeId: storeId))));
-    }
-
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: open,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(child: Stack(fit: StackFit.expand, children: [
-            ColoredBox(
-              color: SneakerDesign.imageSurface,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: photo(product['image_url'] as String, height: 230)),
-            ),
-            if (discount > 0)
-              Positioned(top: 12, left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: SneakerDesign.orange,
-                    borderRadius: BorderRadius.circular(9)),
-                  child: Text('-$discount%',
-                    style: const TextStyle(color: Colors.white,
-                      fontWeight: FontWeight.bold, fontSize: 11)))),
-            Positioned(top: 8, right: 8,
-              child: Material(
-                color: Colors.white, shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: isFavorite ? 'Remove from favorites' : 'Save to favorites',
-                  icon: Icon(isFavorite ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded, size: 20,
-                    color: isFavorite ? SneakerDesign.orange : SneakerDesign.ink),
-                  onPressed: () => cubit.toggleFavorite(product['id'] as int),
+    final p = widget.product;
+    final favorite = cubit.state.favorites.contains(p['id']);
+    final sale = (p['discount'] as int) > 0;
+    final stock = Map<String, dynamic>.from(p['sizes'] as Map);
+    final count = stock.values.fold<int>(0, (sum, n) => sum + (n as num).toInt());
+    final low = stock.values.any((n) {
+      final quantity = (n as num).toInt();
+      return quantity > 0 && quantity <= 2;
+    });
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(color: _hovered
+              ? SneakerDesign.ink : Theme.of(context).dividerColor,
+            width: _hovered ? 1.4 : .8)),
+        child: InkWell(
+          onTap: _open,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(
+              child: Stack(fit: StackFit.expand, children: [
+                ColoredBox(color: SneakerDesign.imageSurface,
+                  child: AnimatedScale(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOut,
+                    scale: _hovered ? 1.05 : 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: photo(p['image_url'] as String, height: 260),
+                    ),
+                  ),
                 ),
-              )),
-          ])),
-          Padding(padding: const EdgeInsets.fromLTRB(14, 12, 14, 15),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text((product['brand'] as String).toUpperCase(),
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, letterSpacing: 1.2,
-                  fontWeight: FontWeight.bold, color: SneakerDesign.muted)),
-              const SizedBox(height: 5),
-              Text(product['name'] as String,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: Text(money(amount(product)),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900))),
-                const Icon(Icons.arrow_outward_rounded, size: 17,
-                  color: SneakerDesign.muted),
+                if (sale)
+                  Positioned(top: 12, left: 11,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: SneakerDesign.ink,
+                        borderRadius: BorderRadius.circular(3)),
+                      child: Text('-${p['discount']}%',
+                        style: const TextStyle(
+                          color: SneakerDesign.lime, fontSize: 11,
+                          letterSpacing: .6, fontWeight: FontWeight.w900)),
+                    )),
+                Positioned(top: 7, right: 7, child: Material(
+                  shape: const CircleBorder(), color: Colors.white,
+                  child: IconButton(
+                    iconSize: 20,
+                    tooltip: favorite ? 'Remove from saved' : 'Save this sneaker',
+                    icon: Icon(favorite
+                      ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: favorite
+                        ? const Color(0xFFD94C4C) : SneakerDesign.ink),
+                    onPressed: () => cubit.toggleFavorite(p['id'] as int),
+                  ),
+                )),
+                if (_hovered)
+                  Positioned(left: 12, bottom: 12, right: 12,
+                    child: Container(
+                      height: 35,
+                      decoration: BoxDecoration(
+                        color: SneakerDesign.lime,
+                        borderRadius: BorderRadius.circular(3)),
+                      alignment: Alignment.center,
+                      child: const Text('VIEW SNEAKER  ↗',
+                        style: TextStyle(color: SneakerDesign.ink,
+                          fontSize: 11, fontWeight: FontWeight.w900,
+                          letterSpacing: .8)),
+                    )),
               ]),
-              if (discount > 0)
-                Text(money(product['price_cents'] as int),
-                  style: const TextStyle(fontSize: 11,
-                    decoration: TextDecoration.lineThrough,
-                    color: SneakerDesign.muted)),
-              if (storeId != null)
-                Padding(padding: const EdgeInsets.only(top: 5),
-                  child: Text(count == 0 ? 'Sold out • Notify me'
-                    : lowStock ? 'Some sizes almost gone' : '$count in this store',
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 13, 12, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text((p['brand'] as String).toUpperCase(),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: count == 0 || lowStock
-                        ? SneakerDesign.orange : SneakerDesign.muted))),
-            ]),
-          ),
-        ]),
+                    style: TextStyle(color: muted, fontSize: 10,
+                      fontWeight: FontWeight.w800, letterSpacing: 1.3)),
+                  const SizedBox(height: 5),
+                  Text(p['name'] as String,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14,
+                      fontWeight: FontWeight.w900, letterSpacing: -.2)),
+                  const SizedBox(height: 9),
+                  Row(children: [
+                    Expanded(child: Text(money(amount(p)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900,
+                        fontSize: 14))),
+                    const Icon(Icons.arrow_outward,
+                      color: SneakerDesign.ink, size: 17),
+                  ]),
+                  if (sale)
+                    Text(money(p['price_cents'] as int),
+                      style: TextStyle(fontSize: 11, color: muted,
+                        decoration: TextDecoration.lineThrough)),
+                  if (widget.storeId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(count == 0 ? 'SOLD OUT  ·  GET NOTIFIED'
+                          : low ? 'LIMITED SIZES IN STOCK'
+                            : '$count PAIRS AT THIS STORE',
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: count == 0 || low
+                            ? const Color(0xFFAD5015) : muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .35)),
+                    ),
+                ],
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
