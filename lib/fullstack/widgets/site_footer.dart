@@ -47,13 +47,17 @@ class SneakerSiteFooter extends StatelessWidget {
               children: [
                 SizedBox(width: small ? width - 50 : 380,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Row(mainAxisSize: MainAxisSize.min, children: [
+                    FittedBox(
+                      alignment: Alignment.centerLeft,
+                      fit: BoxFit.scaleDown,
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
                       Text('SNEAKERHUB',
                         style: TextStyle(color: Colors.white, fontSize: 28,
                           fontWeight: FontWeight.w900, letterSpacing: -1.4)),
                       Text('™', style: TextStyle(color: SneakerDesign.lime,
                         fontSize: 15, fontWeight: FontWeight.w900)),
                     ]),
+                    ),
                     const SizedBox(height: 12),
                     const Text('Good sneakers. Better moves.\nDiscover your next pair in Almaty.',
                       style: TextStyle(color: Colors.white70,

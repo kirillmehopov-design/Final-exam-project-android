@@ -73,7 +73,7 @@ class _CatalogPageState extends State<CatalogPage> {
         const Spacer(),
         Text('STEP INTO\nSOMETHING\nNEW.',
           style: TextStyle(color: Colors.white,
-            fontSize: small ? 43 : 62, height: .95,
+            fontSize: small ? 39 : 62, height: .95,
             fontWeight: FontWeight.w900, letterSpacing: small ? -2 : -3.5)),
         const SizedBox(height: 16),
         Text('Your sneakers, your city. Find iconic pairs, check your size\nand shop your nearest SneakerHub concept store.',
@@ -104,7 +104,7 @@ class _CatalogPageState extends State<CatalogPage> {
       borderRadius: BorderRadius.circular(6),
       child: Container(
         color: SneakerDesign.graphite,
-        height: small ? 440 : 510,
+        height: small ? 545 : 510,
         child: Stack(children: [
           if (small)
             Positioned.fill(child: Image.network(
