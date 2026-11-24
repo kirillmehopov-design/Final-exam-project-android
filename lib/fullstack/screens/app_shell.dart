@@ -337,7 +337,9 @@ class _DashboardState extends State<Dashboard> {
       ),
       body: Column(children: [
         Expanded(child: IndexedStack(index: selected, children: screens)),
-        if (desktop && selected != 0) const SneakerSiteFooter(compact: true),
+        if (desktop && selected != 0 && selected != screens.length - 1 &&
+            !(customer && selected == 1))
+          const SneakerSiteFooter(compact: true),
       ]),
       bottomNavigationBar: desktop ? null : NavigationBar(
         selectedIndex: barSelected,
