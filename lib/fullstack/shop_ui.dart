@@ -26,23 +26,24 @@ part 'screens/stats_screen.dart';
 part 'screens/profile_screen.dart';
 part 'widgets/product_image.dart';
 part 'widgets/product_tile.dart';
+part 'widgets/site_footer.dart';
 
 
 class SneakerDesign {
-  static const ink = Color(0xFF181A19);
-  static const canvas = Color(0xFFFAF9F6);
-  static const orange = Color(0xFFFF633F);
-  static const muted = Color(0xFF70726D);
-  static const line = Color(0xFFECEAE5);
-  static const imageSurface = Color(0xFFF2F0EB);
+  static const ink = Color(0xFF141414);
+  static const canvas = Color(0xFFF5F5F0);
+  static const orange = Color(0xFFD4F45B);
+  static const muted = Color(0xFF6D6F69);
+  static const line = Color(0xFFE1E3DC);
+  static const imageSurface = Color(0xFFF0F1EB);
 
   static ThemeData theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
-      seedColor: orange,
+      seedColor: ink,
       brightness: brightness,
       primary: dark ? const Color(0xFFFFAB8C) : ink,
-      secondary: orange,
+      secondary: dark ? const Color(0xFFD4F45B) : ink,
       surface: dark ? const Color(0xFF1A1A1A) : Colors.white,
     );
     final outline = OutlineInputBorder(
@@ -76,7 +77,7 @@ class SneakerDesign {
         border: outline,
         enabledBorder: outline,
         focusedBorder: outline.copyWith(
-          borderSide: const BorderSide(color: orange, width: 1.6)),
+          borderSide: const BorderSide(color: ink, width: 1.6)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -107,8 +108,11 @@ class SneakerDesign {
     );
   }
 
+  static const lime = Color(0xFFD4F45B);
+  static const graphite = Color(0xFF1E2324);
+
   static Widget eyebrow(String label) => Text(label.toUpperCase(),
-    style: const TextStyle(color: orange, fontSize: 11,
+    style: const TextStyle(color: Color(0xFF687722), fontSize: 11,
       fontWeight: FontWeight.w900, letterSpacing: 2.5));
 }
 

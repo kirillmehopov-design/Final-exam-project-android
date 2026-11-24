@@ -2,7 +2,7 @@ name: Final from Lab 11 - fullstack checks
 
 on:
   push:
-    branches: [feature/final-from-lab11]
+    branches: [feature/final-from-lab11, feature/final-v2-redesign]
   workflow_dispatch:
 
 jobs:
@@ -24,10 +24,10 @@ jobs:
       - name: Build web
         run: flutter build web --release
       - name: Pack full Android-Web project
-        run: zip -q -r SneakerHub-Final-Lab11.zip . -x '.git/*' 'build/*' '.dart_tool/*' '.venv/*' '*.sqlite3' '.idea/*'
+        run: zip -q -r SneakerHub-Final-Redesign.zip . -x '.git/*' 'build/*' '.dart_tool/*' '.venv/*' '*.sqlite3' '.idea/*'
       - uses: actions/upload-artifact@v4
         with:
-          name: SneakerHub-Final-Lab11-Android-Web
+          name: SneakerHub-Final-Redesign-Android-Web
           path: SneakerHub-Final-Lab11.zip
           retention-days: 14
 
