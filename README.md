@@ -1,3 +1,19 @@
+# SneakerHub V2 — Almaty Concept Store
+
+An original, fully redesigned Flutter / FastAPI / SQLite sneaker-shop prototype
+based on the student's Lab 11. **© SneakerHub 2026** is displayed in its footer.
+
+- Editorial homepage, categories, product cards, carousel, responsive navigation
+- 10 fictional SneakerHub branches across Almaty with per-size stock
+- Cart, pickup, district-based demo delivery, requests, notifications and admin
+- Shared BLoC state, JSON persistence and encrypted native session storage
+
+**Important:** Default REST API is LOCAL, not verified CLOUD deployed.
+For honest grading status see [FINAL(2) rubric audit](docs/FINAL2_RUBRIC_AUDIT.md).
+For UI and device tests see [V2 UX notes](docs/UI_V2_DEFENSE.md).
+
+---
+
 # SneakerHub Almaty — Final Exam (based on Lab 11)
 
 Flutter mobile/web storefront + FastAPI REST + SQLite, developed from the user's **Lab 11** source. The old Lab 11 catalog, model, Provider cart, notes, tests, and UI modules remain in the repository; the main entry point now opens the enhanced BLoC storefront.

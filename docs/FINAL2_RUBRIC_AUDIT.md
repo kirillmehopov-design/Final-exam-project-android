@@ -1,0 +1,49 @@
+# FINAL(2).docx — accurate rubric audit (24 November 2026)
+
+This table follows the *uploaded FINAL(2).docx* (100 required points + 10 optional). Green GitHub Actions does not guarantee the assessor's full points.
+
+| Category | Max points | Actual status and evidence |
+|---|---:|---|
+| Architecture & code cleanliness | 15 | Multiple folders `lib/models/`, `lib/providers/`, `lib/fullstack/screens/`, `lib/fullstack/widgets/`; null-safety, README, public GitHub with many progressive commits. Some harmless info lints remain |
+| UI/UX responsiveness & flow | 20 | 3+ screens, Navigator, PageView gallery, pull-to-refresh, visually rebuilt catalog, stores, product, bag, profile, footer. Tests at 320/1440px added. **Needs actual Android/Chrome layout and overflow QA** |
+| Global state management | 20 | `ShopCubit` + `ShopState`, shared cart/favorites/order state, badge sync, `context.watch` in builds and `context.read` in actions |
+| Networking & RESTful API | 20 | HTTP client, `ApiProduct.fromJson` using `(json['price'] as num).toDouble()`, loading/success/error + retry, FastAPI. **CLOUD backend has NOT been deployed; local API does not meet cloud requirement** |
+| Local persistence | 15 | SharedPreferences theme initialized before `runApp`; JSON cart, favorites, notes; `flutter_secure_storage` token restore. **Must test force-quit/reopen on Android** |
+| Live defense | 10 | **Not completed**: student must give 3-minute Android/iOS simulator/phone demo and answer two technical questions referring to code |
+
+## Optional bonus (+10)
+
+- **+3 secure storage:** `lib/providers/secure_session.dart` encrypts session on Android/iOS; needs real-device verification.
+- **+3 deep link:** Android intent filter for `narxoz://store/product/id` and onGenerateRoute; **needs Android device test**, no iOS equivalent verified.
+- **+2 debounced search:** present in `lib/fullstack/screens/catalog_screen.dart`.
+- **+2 custom icon and flutter_native_splash:** **not yet implemented**.
+
+## Strict grading risks
+
+- **-30** if crash on cold-start/navigation; real-device test is essential.
+- **-20** if monolithic single-file code; project uses separated folders.
+- **0 / fail** for plagiarism or inability to explain code. Design uses original implementation inspired by sneaker retail patterns, not copied templates.
+- All 10 Almaty SneakerHub branches, addresses, opening hours, example photos, logistics and prices are **educational demo data**.
+- Product photos are illustrative remote third-party URLs; they may not be exact SKU photos, and production licensing is not validated.
+- Background push notifications, real GPS courier tracking and online payments are not implemented.
+
+## Suggested 3-minute walkthrough
+
+1. 0:00–0:25: sign in, new responsive navigation, persistent theme
+2. 0:25–0:55: editorial homepage, category tiles, 300ms search, filter
+3. 0:55–1:25: product PageView, selected EU size, add to bag, global badge
+4. 1:25–1:55: 10 Almaty stores, branch-specific stock, restock alert
+5. 1:55–2:25: delivery district quote, demo checkout/pickup
+6. 2:25–3:00: force-quit/restart; show code in `main.dart`, `shop_cubit.dart`, `api_product.dart`, `local_store.dart`
+
+## Defense pointers
+
+- App setup & startup: `lib/main.dart`
+- Reactive state: `lib/fullstack/shop_cubit.dart`
+- JSON parsing: `lib/models/api_product.dart`
+- HTTP: `lib/fullstack/api_client.dart`
+- Offline state: `lib/providers/local_store.dart`
+- Encrypted session: `lib/providers/secure_session.dart`
+- Backend/database: `backend/app.py`
+
+Do not claim all 100+10 points before cloud deployment, real-device tests, icon/splash and live defense.
