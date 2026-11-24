@@ -49,7 +49,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SneakerHub • Store'),
+        title: const Text('SNEAKERHUB. / STORE',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: -.4)),
         actions: [
           IconButton(
             tooltip: 'Open cart',
@@ -97,7 +98,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                   SliverToBoxAdapter(child: Center(child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1100),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(limits.maxWidth < 500 ? 14 : 28),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(
@@ -119,9 +120,12 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          SneakerDesign.eyebrow('Almaty / Curated spaces'),
+                          const SizedBox(height: 7),
                           Text(store['name'] as String,
                             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w900)),
+                              fontSize: limits.maxWidth < 500 ? 28 : 40,
+                              letterSpacing: -1.5, fontWeight: FontWeight.w900)),
                           const SizedBox(height: 8),
                           Text(store['description'] as String),
                           const SizedBox(height: 12),
@@ -137,7 +141,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                           Text(store['address_hint'] as String),
                           const Text('DEMO STORE • Photos and opening hours are illustrative.',
                             style: TextStyle(fontSize: 11, color: Colors.grey)),
-                          const Divider(height: 30),
+                          const Divider(height: 40),
                           Text('Shop this store',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold)),
@@ -163,52 +167,14 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns, crossAxisSpacing: 10,
                         mainAxisSpacing: 10,
-                        childAspectRatio: limits.maxWidth < 380 ? .60 : .74,
+                        mainAxisExtent: ((limits.maxWidth - 24 - (columns - 1) * 10) / columns * 1.05 + 128).clamp(260, 480).toDouble(),
                       ),
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final item = visible[index];
-                        final count = item['total_units'] as int;
-                        final availableSizes = Map<String, dynamic>.from(
-                          item['sizes'] as Map);
-                        final scarce = availableSizes.entries.where((entry) {
-                          final n = (entry.value as num).toInt();
-                          return n > 0 && n <= 2;
-                        }).map((entry) => entry.key).toList();
-                        return Card(
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => _openProduct(item),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(child: photo(item['image_url'] as String,
-                                  height: 210)),
-                                Padding(padding: const EdgeInsets.all(9),
-                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item['name'] as String, maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      Text(item['brand'] as String, maxLines: 1,
-                                        style: Theme.of(context).textTheme.bodySmall),
-                                      Text(money(amount(item)),
-                                        style: const TextStyle(fontWeight: FontWeight.w900)),
-                                      Text(count > 0 ? '$count total units in branch' : 'Sold out • Notify me',
-                                        style: TextStyle(fontSize: 11,
-                                          color: count > 0 ? Colors.green : Colors.red)),
-                                      if (scarce.isNotEmpty)
-                                        Text('Low stock EU ${scarce.take(3).join(', ')}',
-                                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 11, color: Colors.deepOrange,
-                                            fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }, childCount: visible.length),
+                      delegate: SliverChildBuilderDelegate((context, index) =>
+                        ProductTile(
+                          product: visible[index],
+                          storeId: widget.storeId,
+                          onOpen: () => _openProduct(visible[index]),
+                        ), childCount: visible.length),
                     ),
                   ),
                 ],
