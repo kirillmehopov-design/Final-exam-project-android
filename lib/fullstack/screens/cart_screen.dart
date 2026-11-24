@@ -7,45 +7,184 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final cubit = context.watch<ShopCubit>();
     final cart = cubit.state.cart;
-    final total = cart.fold<int>(0, (v, item) {
-      final product = cubit.product(item.productId);
-      return v + (product == null ? 0 : amount(product) * item.quantity);
+    final count = cart.fold<int>(0, (sum, item) => sum + item.quantity);
+    final subtotal = cart.fold<int>(0, (sum, item) {
+      final p = cubit.product(item.productId);
+      return sum + (p == null ? 0 : amount(p) * item.quantity);
     });
-    if (cart.isEmpty) return const Center(child: Text('Your cart is empty'));
-    return Column(children: [
-      if (cubit.state.storeId != null)
-        Card(child: ListTile(
-          leading: const Icon(Icons.storefront_outlined),
-          title: Text('Store #${cubit.state.storeId} • branch stock'),
-          subtitle: const Text('Pickup or delivery to your address'),
-        )),
-      Expanded(child: ListView.builder(
-        padding: const EdgeInsets.all(12), itemCount: cart.length,
-        itemBuilder: (context, index) {
-          final item = cart[index];
-          final p = cubit.product(item.productId);
-          if (p == null) return const SizedBox.shrink();
-          return Card(child: ListTile(
-            leading: SizedBox(width: 64, child: photo(p['image_url'] as String, height: 64)),
-            title: Text(p['name'] as String),
-            subtitle: Text('Size ${item.size} • ${money(amount(p))}'),
-            trailing: SizedBox(width: 132, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              IconButton(icon: const Icon(Icons.remove_circle_outline),
-                onPressed: () => cubit.changeQuantity(item, item.quantity - 1)),
-              Text('${item.quantity}'),
-              IconButton(icon: const Icon(Icons.add_circle_outline),
-                onPressed: () => cubit.changeQuantity(item, item.quantity + 1)),
-            ])),
-          ));
-        },
-      )),
-      SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-        Expanded(child: Text('Subtotal ${money(total)}',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
-        FilledButton(onPressed: cubit.state.busy ? null : () => _checkout(context),
-          child: const Text('Checkout')),
-      ]))),
-    ]);
+    if (cart.isEmpty) return Center(child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.shopping_bag_outlined, size: 65,
+          color: SneakerDesign.orange),
+        const SizedBox(height: 18),
+        const Text('Your bag is empty.', style: TextStyle(
+          fontSize: 26, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        const Text('Your next favorite sneaker is waiting.'),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: () => cubit.selectTab(0),
+          icon: const Icon(Icons.arrow_back),
+          label: const Text('Explore sneakers')),
+      ]));
+
+    Widget orderCard() => Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Order summary', style: TextStyle(
+              fontSize: 22, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('Subtotal ($count items)'),
+              Text(money(subtotal), style: const TextStyle(
+                fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Delivery'),
+              Text('At checkout', style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ]),
+            const Divider(height: 30),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(money(subtotal), style: const TextStyle(
+                fontWeight: FontWeight.w900, fontSize: 23)),
+            ]),
+            const SizedBox(height: 20),
+            SizedBox(height: 54, child: FilledButton.icon(
+              onPressed: cubit.state.busy ? null : () => _checkout(context),
+              icon: const Icon(Icons.lock_outline),
+              label: const Text('Continue to checkout'),
+            )),
+            const SizedBox(height: 13),
+            const Text('Demo checkout only • No real payment is collected.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: SneakerDesign.muted, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+
+    Widget items() => ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        SneakerDesign.eyebrow('Your selection'),
+        const SizedBox(height: 7),
+        Text('Shopping bag.', style: Theme.of(context).textTheme.headlineMedium
+          ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -1.3)),
+        const SizedBox(height: 5),
+        Text('$count items saved for checkout.',
+          style: Theme.of(context).textTheme.bodyMedium),
+        if (cubit.state.storeId != null) ...[
+          const SizedBox(height: 13),
+          Card(
+            color: SneakerDesign.orange.withValues(alpha: .09),
+            child: Padding(padding: const EdgeInsets.all(13),
+              child: Row(children: [
+                const Icon(Icons.storefront_outlined,
+                  color: SneakerDesign.orange),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  'Store #${cubit.state.storeId} • Stock reserved only on successful checkout',
+                  style: const TextStyle(fontSize: 12))),
+              ])),
+          ),
+        ],
+        const SizedBox(height: 16),
+        for (final item in cart)
+          if (cubit.product(item.productId) case final Json p)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: SizedBox(width: 99, height: 108,
+                          child: ColoredBox(
+                            color: SneakerDesign.imageSurface,
+                            child: photo(p['image_url'] as String, height: 108))),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text((p['brand'] as String).toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10, letterSpacing: 1.2,
+                              fontWeight: FontWeight.w800,
+                              color: SneakerDesign.muted)),
+                          const SizedBox(height: 4),
+                          Text(p['name'] as String,
+                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900,
+                              fontSize: 15)),
+                          const SizedBox(height: 5),
+                          Text('EU ${item.size}  •  ${money(amount(p))}',
+                            style: Theme.of(context).textTheme.bodySmall),
+                          const SizedBox(height: 9),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Remove one',
+                              onPressed: () => cubit.changeQuantity(
+                                item, item.quantity - 1),
+                              icon: const Icon(Icons.remove_circle_outline, size: 21)),
+                            Text('${item.quantity}', style: const TextStyle(
+                              fontWeight: FontWeight.w900)),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Add one',
+                              onPressed: () => cubit.changeQuantity(
+                                item, item.quantity + 1),
+                              icon: const Icon(Icons.add_circle_outline, size: 21)),
+                            const Spacer(),
+                            Text(money(amount(p) * item.quantity),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 12)),
+                          ]),
+                        ],
+                      )),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
+
+    return LayoutBuilder(builder: (context, bounds) {
+      final wide = bounds.maxWidth >= 860;
+      return Center(child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1180),
+        child: Padding(
+          padding: EdgeInsets.all(wide ? 28 : 14),
+          child: wide
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: items()),
+                const SizedBox(width: 24),
+                SizedBox(width: 330, child: SingleChildScrollView(
+                  child: orderCard())),
+              ])
+            : Column(children: [
+                Expanded(child: items()),
+                SafeArea(top: false,
+                  child: Padding(padding: const EdgeInsets.only(top: 9),
+                    child: orderCard())),
+              ]),
+        ),
+      ));
+    });
   }
 
   Future<void> _checkout(BuildContext context) async {
