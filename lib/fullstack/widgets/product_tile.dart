@@ -14,7 +14,10 @@ class ProductTile extends StatelessWidget {
     final sizes = Map<String, dynamic>.from(product['sizes'] as Map);
     final count = sizes.values.fold<int>(0, (n, item) => n + (item as num).toInt());
     final lowStock = storeId != null && count > 0 &&
-      sizes.values.any((item) => (item as num).toInt() > 0 && (item as num).toInt() <= 2);
+      sizes.values.any((item) {
+        final quantity = (item as num).toInt();
+        return quantity > 0 && quantity <= 2;
+      });
     void open() {
       if (onOpen != null) {
         onOpen!();
