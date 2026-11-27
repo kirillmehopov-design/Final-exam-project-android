@@ -60,6 +60,130 @@ class _CatalogPageState extends State<CatalogPage> {
     });
   }
 
+  int get activeFilters => (brand == 'All' ? 0 : 1) +
+    (selectedSize == null ? 0 : 1) + (priceRange == 'Any price' ? 0 : 1) +
+    (offersOnly ? 1 : 0) + (inStockOnly ? 1 : 0);
+
+  Widget _activeFilterChip(String text, VoidCallback onRemove) => Padding(
+    padding: const EdgeInsets.only(right: 7),
+    child: InputChip(
+      label: Text(text),
+      onDeleted: onRemove,
+      deleteIcon: const Icon(Icons.close, size: 16),
+    ),
+  );
+
+  Future<void> _openFilters(BuildContext context, double width,
+      List<String> brands, List<int> sizes) async {
+    Widget content(BuildContext dialog, StateSetter redraw) {
+      void change(VoidCallback fn) {
+        setState(fn);
+        redraw(() {});
+      }
+      Widget heading(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(text.toUpperCase(), style: const TextStyle(
+          fontWeight: FontWeight.w900, letterSpacing: 1.3, fontSize: 12)),
+      );
+      return SafeArea(top: false, child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+            child: Row(children: [
+              const Expanded(child: Text('Refine your selection',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900))),
+              IconButton(
+                tooltip: 'Close filters',
+                onPressed: () => Navigator.pop(dialog),
+                icon: const Icon(Icons.close)),
+            ]),
+          ),
+          const Divider(height: 1),
+          Expanded(child: ListView(padding: const EdgeInsets.all(20), children: [
+            heading('Brand'),
+            Wrap(spacing: 7, runSpacing: 6, children: [
+              for (final item in brands)
+                ChoiceChip(label: Text(item == 'All' ? 'All brands' : item),
+                  selected: brand == item,
+                  onSelected: (_) => change(() => brand = item)),
+            ]),
+            const SizedBox(height: 24),
+            heading('EU size'),
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              ChoiceChip(label: const Text('Any'),
+                selected: selectedSize == null,
+                onSelected: (_) => change(() => selectedSize = null)),
+              for (final item in sizes)
+                ChoiceChip(label: Text('$item'),
+                  selected: selectedSize == item,
+                  onSelected: (_) => change(() => selectedSize = item)),
+            ]),
+            const SizedBox(height: 24),
+            heading('Price'),
+            DropdownButtonFormField<String>(
+              key: ValueKey('price-$priceRange'),
+              initialValue: priceRange,
+              decoration: const InputDecoration(labelText: 'Price range'),
+              items: [
+                for (final item in const ['Any price', 'Under 60 000 ₸',
+                  'Under 80 000 ₸', '80 000 ₸+'])
+                  DropdownMenuItem(value: item, child: Text(item)),
+              ],
+              onChanged: (v) => change(
+                () => priceRange = v ?? 'Any price'),
+            ),
+            const SizedBox(height: 20),
+            heading('Availability'),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: offersOnly,
+              title: const Text('On sale'),
+              onChanged: (v) => change(() => offersOnly = v)),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: inStockOnly,
+              title: const Text('In stock'),
+              onChanged: (v) => change(() => inStockOnly = v)),
+          ])),
+          const Divider(height: 1),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Row(children: [
+              TextButton(onPressed: () {
+                _clearFilters();
+                redraw(() {});
+              }, child: const Text('Reset all')),
+              const SizedBox(width: 8),
+              Expanded(child: FilledButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: const Text('Show products'))),
+            ])),
+        ]));
+    }
+    if (width < 720) {
+      await showModalBottomSheet<void>(
+        context: context, isScrollControlled: true, useSafeArea: true,
+        showDragHandle: true,
+        builder: (dialog) => FractionallySizedBox(
+          heightFactor: .85,
+          child: StatefulBuilder(builder: content)),
+      );
+    } else {
+      await showGeneralDialog<void>(
+        context: context, barrierDismissible: true,
+        barrierLabel: 'Close filters',
+        transitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (dialog, _, __) => Align(
+          alignment: Alignment.centerRight,
+          child: Material(color: Theme.of(context).colorScheme.surface,
+            child: SizedBox(width: 420, height: double.infinity,
+              child: StatefulBuilder(builder: content)))),
+        transitionBuilder: (_, animation, __, child) => SlideTransition(
+          position: Tween<Offset>(begin: const Offset(1, 0),
+            end: Offset.zero).animate(animation),
+          child: child),
+      );
+    }
+  }
+
   Widget _hero(BuildContext context, double width) {
     final small = width < 720;
     final desktop = width >= 720;
