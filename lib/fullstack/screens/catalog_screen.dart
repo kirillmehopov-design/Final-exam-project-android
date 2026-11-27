@@ -512,88 +512,144 @@ class _CatalogPageState extends State<CatalogPage> {
                 const SizedBox(height: 15),
                 _benefits(context, narrow),
                 const SizedBox(height: 27),
-                Row(children: [
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      SneakerDesign.eyebrow('The collection'),
-                      const SizedBox(height: 4),
-                      Text('Discover sneakers.',
-                        style: TextStyle(fontSize: narrow ? 26 : 38,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1.3)),
-                    ])),
-                  Text('${filtered.length} STYLES',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      letterSpacing: 1.7, fontWeight: FontWeight.bold)),
-                ]),
-                const SizedBox(height: 17),
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) {
-                    _searchDebounce?.cancel();
-                    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-                      if (mounted) setState(() => query = value);
-                    });
-                  },
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: 'Search Nike, Adidas, Air Jordan...',
-                    suffixIcon: query.isEmpty ? null : IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: _clearFilters,
-                      icon: const Icon(Icons.close)),
-                  ),
-                ),
-                const SizedBox(height: 13),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+                Container(
+                  key: _collectionKey,
                   child: Row(children: [
-                    for (final value in brands)
-                      Padding(padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(value == 'All' ? 'All brands' : value),
-                          selected: brand == value,
-                          onSelected: (_) => setState(() => brand = value),
-                        )),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SneakerDesign.eyebrow('The collection'),
+                        const SizedBox(height: 4),
+                        Text('Discover sneakers.',
+                          style: TextStyle(fontSize: narrow ? 26 : 38,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.3)),
+                      ])),
+                    Text('${filtered.length} STYLES',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        letterSpacing: 1.7, fontWeight: FontWeight.bold)),
                   ]),
                 ),
-                const SizedBox(height: 12),
-                Wrap(spacing: 9, runSpacing: 9,
-                  crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    SizedBox(width: narrow ? 155 : 192,
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('category-$category'), initialValue: category,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Category', isDense: true),
-                        items: [for (final value in categories)
-                          DropdownMenuItem(value: value, child: Text(value))],
-                        onChanged: (v) => setState(() => category = v ?? 'All'),
-                      )),
-                    SizedBox(width: narrow ? 175 : 210,
-                      child: DropdownButtonFormField<String>(
-                        key: ValueKey('sort-$sortBy'), initialValue: sortBy, isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Sort by', isDense: true),
-                        items: [for (final value in const [
-                          'Featured', 'Price: low to high',
-                          'Price: high to low', 'Biggest discount'])
-                          DropdownMenuItem(value: value, child: Text(value))],
-                        onChanged: (v) => setState(() => sortBy = v ?? 'Featured'),
-                      )),
-                    FilterChip(
-                      label: const Text('Offers'),
-                      avatar: const Icon(Icons.local_offer_outlined, size: 16),
-                      selected: offersOnly,
-                      onSelected: (v) => setState(() => offersOnly = v)),
-                    FilterChip(
-                      label: const Text('Available'),
-                      avatar: const Icon(Icons.check_circle_outline, size: 16),
-                      selected: inStockOnly,
-                      onSelected: (v) => setState(() => inStockOnly = v)),
-                    TextButton.icon(
-                      onPressed: _clearFilters,
-                      icon: const Icon(Icons.restart_alt_outlined, size: 17),
-                      label: const Text('Reset')),
-                  ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 300), () {
+                          if (mounted) setState(() => query = value);
+                        });
+                    },
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: narrow ? 'Search sneakers...' :
+                        'Search Nike, Adidas, Air Jordan...',
+                      suffixIcon: query.isEmpty ? null : IconButton(
+                        tooltip: 'Clear search',
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          _searchDebounce?.cancel();
+                          _searchController.clear();
+                          setState(() => query = '');
+                        }),
+                    ),
+                  )),
+                  const SizedBox(width: 9),
+                  OutlinedButton.icon(
+                    key: const ValueKey('catalog-open-filters'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: Size(narrow ? 50 : 125, 56),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: narrow ? 12 : 16),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    onPressed: () {
+                      final sizes = state.products
+                        .expand((p) => Map<String,dynamic>.from(
+                          p['sizes'] as Map).keys)
+                        .map(int.tryParse).whereType<int>().toSet().toList()
+                        ..sort();
+                      _openFilters(context, w, brands, sizes);
+                    },
+                    icon: const Icon(Icons.tune_rounded),
+                    label: narrow ? const SizedBox.shrink()
+                      : Text('Filters${activeFilters == 0 ? '' : ' ($activeFilters)'}'),
+                  ),
+                ]),
+                const SizedBox(height: 11),
+                Row(children: [
+                  Expanded(child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: [
+                      for (final value in categories)
+                        Padding(padding: const EdgeInsets.only(right: 7),
+                          child: ChoiceChip(
+                            key: ValueKey('category-$value'),
+                            label: Text(value == 'All' ? 'All shoes' : value),
+                            selected: category == value,
+                            onSelected: (_) => setState(() => category = value),
+                          )),
+                    ]),
+                  )),
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    key: const ValueKey('catalog-sort'),
+                    tooltip: 'Sort products',
+                    initialValue: sortBy,
+                    onSelected: (value) => setState(() => sortBy = value),
+                    itemBuilder: (context) => [
+                      for (final value in const [
+                        'Featured', 'Price: low to high',
+                        'Price: high to low', 'Biggest discount'])
+                        PopupMenuItem(value: value, child: Text(value)),
+                    ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 10),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.sort, size: 21),
+                        if (!narrow) ...[
+                          const SizedBox(width: 6),
+                          const Text('Sort', style: TextStyle(
+                            fontWeight: FontWeight.w700)),
+                        ],
+                      ]),
+                    ),
+                  ),
+                ]),
+                if (activeFilters > 0 || query.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  SizedBox(height: 41, child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      if (brand != 'All')
+                        _activeFilterChip(brand,
+                          () => setState(() => brand = 'All')),
+                      if (selectedSize != null)
+                        _activeFilterChip('EU $selectedSize',
+                          () => setState(() => selectedSize = null)),
+                      if (priceRange != 'Any price')
+                        _activeFilterChip(priceRange,
+                          () => setState(() => priceRange = 'Any price')),
+                      if (offersOnly)
+                        _activeFilterChip('Offers',
+                          () => setState(() => offersOnly = false)),
+                      if (inStockOnly)
+                        _activeFilterChip('In stock',
+                          () => setState(() => inStockOnly = false)),
+                      if (query.isNotEmpty)
+                        _activeFilterChip('Search: $query', () {
+                          _searchDebounce?.cancel();
+                          _searchController.clear();
+                          setState(() => query = '');
+                        }),
+                      TextButton(onPressed: _clearFilters,
+                        child: const Text('Clear all')),
+                    ],
+                  )),
+                ],
                 const SizedBox(height: 12),
               ]),
             )),
