@@ -13,6 +13,9 @@ class _CatalogPageState extends State<CatalogPage> {
   String sortBy = 'Featured';
   bool offersOnly = false;
   bool inStockOnly = false;
+  int? selectedSize;
+  String priceRange = 'Any price';
+  final GlobalKey _collectionKey = GlobalKey();
   Timer? _searchDebounce;
   final ScrollController _scroll = ScrollController();
 
@@ -31,16 +34,18 @@ class _CatalogPageState extends State<CatalogPage> {
     sortBy = 'Featured';
     offersOnly = false;
     inStockOnly = false;
+    selectedSize = null;
+    priceRange = 'Any price';
     _searchController.clear();
   });
 
   final _searchController = TextEditingController();
   void _scrollToCollection() {
-    if (!_scroll.hasClients) return;
-    final max = _scroll.position.maxScrollExtent;
-    _scroll.animateTo(max < 1270 ? max : 1270,
-      duration: const Duration(milliseconds: 550),
-      curve: Curves.easeInOutCubic);
+    final target = _collectionKey.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic, alignment: .03);
+    }
   }
 
   void _chooseEdit(String value) {
@@ -316,7 +321,13 @@ class _CatalogPageState extends State<CatalogPage> {
         (brand == 'All' || p['brand'] == brand) &&
         (category == 'All' || p['category'] == category) &&
         (!offersOnly || (p['discount'] as int) > 0) &&
-        (!inStockOnly || available);
+        (!inStockOnly || available) &&
+        (selectedSize == null || (Map<String,dynamic>.from(p['sizes'] as Map)
+          ['$selectedSize'] as num? ?? 0) > 0) &&
+        (priceRange == 'Any price' ||
+          (priceRange == 'Under 60 000 ₸' && amount(p) < 6000000) ||
+          (priceRange == 'Under 80 000 ₸' && amount(p) < 8000000) ||
+          (priceRange == '80 000 ₸+' && amount(p) >= 8000000));
     }).toList();
     switch (sortBy) {
       case 'Price: low to high':
